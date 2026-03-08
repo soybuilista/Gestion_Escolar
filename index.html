@@ -2591,26 +2591,56 @@ function renderSecretMenu() {
   $app.innerHTML = `
   <h2 class="sec-title">🗂️ Portal Secretaría</h2>
   <p class="sec-sub">I.E. Alfonso Builes Correa — Gestión de permisos y datos</p>
-  <div class="menu-grid fade-up">
-    <div class="menu-item" onclick="renderManualPermForm('student','secretary')">
-      <div class="mi">📋</div>
-      <h3>Ingresar Permiso Estudiantil</h3>
-      <p>Registrar permiso recibido en papel</p>
+  <div class="menu-grid fade-up" style="grid-template-columns:repeat(auto-fill,minmax(200px,1fr))">
+    <div class="menu-item" onclick="renderSecretDocentes()">
+      <div class="mi">👨‍🏫</div>
+      <h3>Docentes</h3>
+      <p>Permisos y gestión de docentes</p>
     </div>
+    <div class="menu-item" onclick="renderSecretEstudiantes()">
+      <div class="mi">👥</div>
+      <h3>Estudiantes</h3>
+      <p>Permisos y gestión de estudiantes</p>
+    </div>
+  </div>`;
+}
+
+// ── SUBMENÚ SECRETARÍA: DOCENTES ──
+function renderSecretDocentes() {
+  $app.innerHTML = `
+  <button class="btn btn-outline btn-sm" onclick="renderSecretMenu()" style="margin-bottom:16px">← Volver</button>
+  <h2 class="sec-title">👨‍🏫 Docentes</h2>
+  <p class="sec-sub">Permisos y datos del personal docente</p>
+  <div class="menu-grid fade-up" style="grid-template-columns:repeat(auto-fill,minmax(200px,1fr))">
     <div class="menu-item" onclick="renderManualPermForm('teacher','secretary')">
-      <div class="mi">👩‍🏫</div>
+      <div class="mi">📝</div>
       <h3>Ingresar Permiso Docente</h3>
       <p>Registrar permiso recibido en papel</p>
     </div>
-    <div class="menu-item" onclick="renderSecretStudents()">
-      <div class="mi">👥</div>
-      <h3>Estudiantes</h3>
-      <p>Ver y editar por grupo</p>
-    </div>
     <div class="menu-item" onclick="renderSecretTeachers()">
-      <div class="mi">👩‍🏫</div>
-      <h3>Docentes</h3>
-      <p>Ver y editar por jornada</p>
+      <div class="mi">🗂️</div>
+      <h3>Gestionar Docentes</h3>
+      <p>Ver y editar datos de docentes</p>
+    </div>
+  </div>`;
+}
+
+// ── SUBMENÚ SECRETARÍA: ESTUDIANTES ──
+function renderSecretEstudiantes() {
+  $app.innerHTML = `
+  <button class="btn btn-outline btn-sm" onclick="renderSecretMenu()" style="margin-bottom:16px">← Volver</button>
+  <h2 class="sec-title">👥 Estudiantes</h2>
+  <p class="sec-sub">Permisos y datos del alumnado</p>
+  <div class="menu-grid fade-up" style="grid-template-columns:repeat(auto-fill,minmax(200px,1fr))">
+    <div class="menu-item" onclick="renderManualPermForm('student','secretary')">
+      <div class="mi">📝</div>
+      <h3>Ingresar Permiso Estudiantil</h3>
+      <p>Registrar permiso recibido en papel</p>
+    </div>
+    <div class="menu-item" onclick="renderSecretStudents()">
+      <div class="mi">🗂️</div>
+      <h3>Gestionar Estudiantes</h3>
+      <p>Ver y editar datos de estudiantes</p>
     </div>
   </div>`;
 }
