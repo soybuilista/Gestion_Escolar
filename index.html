@@ -855,19 +855,54 @@ function renderTeacherMenu() {
   $app.innerHTML = `
   <h2 class="sec-title">👩‍🏫 Portal Docente</h2>
   <p class="sec-sub">Bienvenido/a, <strong>${S.user?.name||''}</strong> · ${S.user?.asignacion||''} · J.${S.user?.jornada||''}</p>
-  <div class="menu-grid fade-up">
-    <div class="menu-item" onclick="renderPermissionForm('teacher')">
+  <div class="menu-grid fade-up" style="grid-template-columns:repeat(auto-fill,minmax(200px,1fr))">
+    <div class="menu-item" onclick="renderTeacherMisPermisos()">
       <div class="mi">📋</div>
+      <h3>Mis Permisos</h3>
+      <p>Solicitar permiso y ver historial</p>
+    </div>
+    <div class="menu-item" onclick="renderTeacherMiClase()">
+      <div class="mi">📝</div>
+      <h3>Mi Clase</h3>
+      <p>Pasar lista y administrar mi grupo</p>
+    </div>
+    <div class="menu-item" onclick="renderTeacherMisReportes()">
+      <div class="mi">📊</div>
+      <h3>Mis Reportes</h3>
+      <p>Asistencia y permisos de mi grupo</p>
+    </div>
+  </div>`;
+}
+
+// ── SUBMENÚ: MIS PERMISOS ──
+function renderTeacherMisPermisos() {
+  $app.innerHTML = `
+  <button class="btn btn-outline btn-sm" onclick="renderTeacherMenu()" style="margin-bottom:16px">← Volver</button>
+  <h2 class="sec-title">📋 Mis Permisos</h2>
+  <p class="sec-sub">Gestión de mis solicitudes de permiso</p>
+  <div class="menu-grid fade-up" style="grid-template-columns:repeat(auto-fill,minmax(200px,1fr))">
+    <div class="menu-item" onclick="renderPermissionForm('teacher')">
+      <div class="mi">📬</div>
       <h3>Solicitar Permiso</h3>
       <p>Registre su solicitud con soporte</p>
     </div>
     <div class="menu-item" onclick="renderMyRequests('teacher')">
       <div class="mi">📂</div>
-      <h3>Mis Permisos</h3>
-      <p>Historial y estados</p>
+      <h3>Historial</h3>
+      <p>Ver mis permisos y estados</p>
     </div>
+  </div>`;
+}
+
+// ── SUBMENÚ: MI CLASE ──
+function renderTeacherMiClase() {
+  $app.innerHTML = `
+  <button class="btn btn-outline btn-sm" onclick="renderTeacherMenu()" style="margin-bottom:16px">← Volver</button>
+  <h2 class="sec-title">📝 Mi Clase</h2>
+  <p class="sec-sub">Gestión del aula y asistencia</p>
+  <div class="menu-grid fade-up" style="grid-template-columns:repeat(auto-fill,minmax(200px,1fr))">
     <div class="menu-item" onclick="renderAttendanceSelect()">
-      <div class="mi">📝</div>
+      <div class="mi">📋</div>
       <h3>Pasar Lista</h3>
       <p>Verificar asistencia estudiantil</p>
     </div>
@@ -876,13 +911,23 @@ function renderTeacherMenu() {
       <h3>Administrar Mi Grupo</h3>
       <p>Registrar y editar estudiantes</p>
     </div>
+  </div>`;
+}
+
+// ── SUBMENÚ: MIS REPORTES ──
+function renderTeacherMisReportes() {
+  $app.innerHTML = `
+  <button class="btn btn-outline btn-sm" onclick="renderTeacherMenu()" style="margin-bottom:16px">← Volver</button>
+  <h2 class="sec-title">📊 Mis Reportes</h2>
+  <p class="sec-sub">Seguimiento de mi grupo asignado</p>
+  <div class="menu-grid fade-up" style="grid-template-columns:repeat(auto-fill,minmax(200px,1fr))">
     <div class="menu-item" onclick="renderMyGroupAttReports()">
       <div class="mi">📅</div>
       <h3>Asistencia de Mi Grupo</h3>
       <p>Reporte de asistencia de mis estudiantes</p>
     </div>
     <div class="menu-item" onclick="renderMyGroupPermReports()">
-      <div class="mi">📊</div>
+      <div class="mi">📈</div>
       <h3>Permisos de Mi Grupo</h3>
       <p>Solicitudes de permiso de mis estudiantes</p>
     </div>
