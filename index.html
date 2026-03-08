@@ -1121,66 +1121,100 @@ function renderCoordMenu() {
   $app.innerHTML = `
   <h2 class="sec-title">🧑‍💼 Panel de Coordinación</h2>
   <p class="sec-sub">I.E. Alfonso Builes Correa — Gestión integral</p>
-  <div class="menu-grid fade-up">
-    <div class="menu-item" onclick="renderCoordPermisos('student')">
-      <div class="mi">📋</div>
-      <h3>Permisos Estudiantiles</h3>
-      <p>Gestionar y responder solicitudes</p>
-    </div>
-    <div class="menu-item" onclick="renderCoordPermisos('teacher')">
+  <div class="menu-grid fade-up" style="grid-template-columns:repeat(auto-fill,minmax(220px,1fr))">
+    <div class="menu-item" onclick="renderAdminDocentes()">
       <div class="mi">👨‍🏫</div>
-      <h3>Permisos Docentes</h3>
-      <p>Gestionar y responder solicitudes</p>
-    </div>
-    <div class="menu-item" onclick="renderCoordReportsV2('student')">
-      <div class="mi">📊</div>
-      <h3>Reportes Estudiantiles</h3>
-      <p>Estadísticas por mes, grado y motivo</p>
-    </div>
-    <div class="menu-item" onclick="renderCoordReportsV2('teacher')">
-      <div class="mi">📈</div>
-      <h3>Reportes Docentes</h3>
-      <p>Estadísticas por mes y asignación</p>
-    </div>
-    <div class="menu-item" onclick="renderCoordAttendance()">
-      <div class="mi">🕐</div>
-      <h3>Asistencia Docente</h3>
-      <p>Pasar lista por jornada</p>
-    </div>
-    <div class="menu-item" onclick="renderCoordTeacherAdmin()">
-      <div class="mi">👩‍🏫</div>
       <h3>Administrar Docentes</h3>
-      <p>Registrar y gestionar docentes</p>
+      <p>Gestión, asistencia, permisos y reportes</p>
     </div>
-    <div class="menu-item" onclick="renderCoordStudentAdmin()">
+    <div class="menu-item" onclick="renderAdminEstudiantes()">
       <div class="mi">👥</div>
       <h3>Administrar Estudiantes</h3>
-      <p>Registrar, editar y eliminar estudiantes</p>
+      <p>Gestión, asistencia, permisos y reportes</p>
     </div>
     <div class="menu-item" onclick="renderCoordGroupAdmin()">
       <div class="mi">🏫</div>
       <h3>Administrar Grupos</h3>
       <p>Asignar directores de grupo</p>
     </div>
-    <div class="menu-item" onclick="renderAttReportsV2()">
-      <div class="mi">📅</div>
-      <h3>Asistencia Estudiantil</h3>
-      <p>Historial con filtros por grupo y fecha</p>
+  </div>`;
+}
+
+
+// ── SUBMENÚ: ADMINISTRAR ESTUDIANTES (placeholder - próximamente) ──
+function renderAdminEstudiantes() {
+  $app.innerHTML = `
+  <button class="btn btn-outline btn-sm" onclick="renderCoordMenu()" style="margin-bottom:16px">← Volver</button>
+  <h2 class="sec-title">👥 Administrar Estudiantes</h2>
+  <p class="sec-sub">Próximamente — en construcción</p>
+  <div class="empty"><div class="ei">🚧</div><p>Este módulo se está organizando.</p></div>`;
+}
+// ── SUBMENÚ: ADMINISTRAR DOCENTES ──
+function renderAdminDocentes() {
+  $app.innerHTML = `
+  <button class="btn btn-outline btn-sm" onclick="renderCoordMenu()" style="margin-bottom:16px">← Volver</button>
+  <h2 class="sec-title">👨‍🏫 Administrar Docentes</h2>
+  <p class="sec-sub">Gestión integral del personal docente</p>
+  <div class="menu-grid fade-up" style="grid-template-columns:repeat(auto-fill,minmax(200px,1fr))">
+    <div class="menu-item" onclick="renderCoordTeacherAdmin()">
+      <div class="mi">🗂️</div>
+      <h3>Gestionar Docentes</h3>
+      <p>Registrar, actualizar, eliminar y cargar Excel</p>
     </div>
-    <div class="menu-item" onclick="renderTeacherAttReports()">
-      <div class="mi">🗓️</div>
-      <h3>Asistencia Docente</h3>
-      <p>Historial de asistencia por jornada</p>
+    <div class="menu-item" onclick="renderCoordAttendance()">
+      <div class="mi">🕐</div>
+      <h3>Asistencia</h3>
+      <p>Pasar lista por jornada</p>
     </div>
-    <div class="menu-item" onclick="renderManualPermForm('student','coordinator')">
-      <div class="mi">✍️</div>
-      <h3>Ingresar Permiso Estudiantil</h3>
-      <p>Registrar permiso recibido en papel</p>
+    <div class="menu-item" onclick="renderAdminDocentesPermisos()">
+      <div class="mi">📋</div>
+      <h3>Permisos</h3>
+      <p>Gestionar solicitudes e ingresar permisos en papel</p>
+    </div>
+    <div class="menu-item" onclick="renderAdminDocentesReportes()">
+      <div class="mi">📊</div>
+      <h3>Reportes</h3>
+      <p>Asistencia y permisos docentes</p>
+    </div>
+  </div>`;
+}
+
+// ── SUBMENÚ: PERMISOS DOCENTES ──
+function renderAdminDocentesPermisos() {
+  $app.innerHTML = `
+  <button class="btn btn-outline btn-sm" onclick="renderAdminDocentes()" style="margin-bottom:16px">← Volver</button>
+  <h2 class="sec-title">📋 Permisos Docentes</h2>
+  <p class="sec-sub">Gestión de solicitudes de permiso</p>
+  <div class="menu-grid fade-up" style="grid-template-columns:repeat(auto-fill,minmax(200px,1fr))">
+    <div class="menu-item" onclick="renderCoordPermisos('teacher')">
+      <div class="mi">📬</div>
+      <h3>Permisos Docentes</h3>
+      <p>Gestionar y responder solicitudes</p>
     </div>
     <div class="menu-item" onclick="renderManualPermForm('teacher','coordinator')">
       <div class="mi">📝</div>
       <h3>Ingresar Permiso Docente</h3>
       <p>Registrar permiso recibido en papel</p>
+    </div>
+  </div>`;
+}
+
+// ── SUBMENÚ: REPORTES DOCENTES ──
+function renderAdminDocentesReportes() {
+  $app.innerHTML = `
+  <button class="btn btn-outline btn-sm" onclick="renderAdminDocentes()" style="margin-bottom:16px">← Volver</button>
+  <h2 class="sec-title">📊 Reportes Docentes</h2>
+  <p class="sec-sub">Estadísticas y seguimiento del personal</p>
+  <div class="menu-grid fade-up" style="grid-template-columns:repeat(auto-fill,minmax(200px,1fr))">
+    <div class="menu-item" onclick="renderTeacherAttReports()">
+      <div class="mi">🗓️</div>
+      <h3>Reporte de Asistencia</h3>
+      <p>Historial de asistencia por jornada</p>
+    </div>
+    <div class="menu-item" onclick="renderCoordReportsV2('teacher')">
+      <div class="mi">📈</div>
+      <h3>Reporte de Permisos</h3>
+      <p>Estadísticas por mes y asignación</p>
     </div>
   </div>`;
 }
@@ -1971,7 +2005,7 @@ async function renderTeacherAttReports() {
   window._docenteMap = docenteMap;
 
   $app.innerHTML = `
-  <button class="btn btn-outline btn-sm" onclick="renderCoordMenu()" style="margin-bottom:16px">← Volver</button>
+  <button class="btn btn-outline btn-sm" onclick="renderAdminDocentesReportes()" style="margin-bottom:16px">← Volver</button>
   <div style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:12px;margin-bottom:6px">
     <div><h2 class="sec-title">🕐 Asistencia Docente — Histórico</h2><p class="sec-sub">${sorted.length} registros</p></div>
     <button class="btn btn-outline btn-sm" onclick="window.print()">🖨️ Imprimir</button>
