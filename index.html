@@ -1141,13 +1141,69 @@ function renderCoordMenu() {
 }
 
 
-// ── SUBMENÚ: ADMINISTRAR ESTUDIANTES (placeholder - próximamente) ──
+// ── SUBMENÚ: ADMINISTRAR ESTUDIANTES ──
 function renderAdminEstudiantes() {
   $app.innerHTML = `
   <button class="btn btn-outline btn-sm" onclick="renderCoordMenu()" style="margin-bottom:16px">← Volver</button>
   <h2 class="sec-title">👥 Administrar Estudiantes</h2>
-  <p class="sec-sub">Próximamente — en construcción</p>
-  <div class="empty"><div class="ei">🚧</div><p>Este módulo se está organizando.</p></div>`;
+  <p class="sec-sub">Gestión integral del alumnado</p>
+  <div class="menu-grid fade-up" style="grid-template-columns:repeat(auto-fill,minmax(200px,1fr))">
+    <div class="menu-item" onclick="renderCoordStudentAdmin()">
+      <div class="mi">🗂️</div>
+      <h3>Gestionar Estudiantes</h3>
+      <p>Registrar, actualizar, eliminar y cargar Excel</p>
+    </div>
+    <div class="menu-item" onclick="renderAdminEstudiantesPermisos()">
+      <div class="mi">📋</div>
+      <h3>Permisos</h3>
+      <p>Gestionar solicitudes e ingresar permisos en papel</p>
+    </div>
+    <div class="menu-item" onclick="renderAdminEstudiantesReportes()">
+      <div class="mi">📊</div>
+      <h3>Reportes</h3>
+      <p>Asistencia y permisos estudiantiles</p>
+    </div>
+  </div>`;
+}
+
+// ── SUBMENÚ: PERMISOS ESTUDIANTILES ──
+function renderAdminEstudiantesPermisos() {
+  $app.innerHTML = `
+  <button class="btn btn-outline btn-sm" onclick="renderAdminEstudiantes()" style="margin-bottom:16px">← Volver</button>
+  <h2 class="sec-title">📋 Permisos Estudiantiles</h2>
+  <p class="sec-sub">Gestión de solicitudes de permiso</p>
+  <div class="menu-grid fade-up" style="grid-template-columns:repeat(auto-fill,minmax(200px,1fr))">
+    <div class="menu-item" onclick="renderCoordPermisos('student')">
+      <div class="mi">📬</div>
+      <h3>Permisos Estudiantiles</h3>
+      <p>Gestionar y responder solicitudes</p>
+    </div>
+    <div class="menu-item" onclick="renderManualPermForm('student','coordinator')">
+      <div class="mi">📝</div>
+      <h3>Ingresar Permiso Estudiantil</h3>
+      <p>Registrar permiso recibido en papel</p>
+    </div>
+  </div>`;
+}
+
+// ── SUBMENÚ: REPORTES ESTUDIANTILES ──
+function renderAdminEstudiantesReportes() {
+  $app.innerHTML = `
+  <button class="btn btn-outline btn-sm" onclick="renderAdminEstudiantes()" style="margin-bottom:16px">← Volver</button>
+  <h2 class="sec-title">📊 Reportes Estudiantiles</h2>
+  <p class="sec-sub">Estadísticas y seguimiento del alumnado</p>
+  <div class="menu-grid fade-up" style="grid-template-columns:repeat(auto-fill,minmax(200px,1fr))">
+    <div class="menu-item" onclick="renderAttReportsV2()">
+      <div class="mi">📅</div>
+      <h3>Reporte de Asistencia</h3>
+      <p>Historial con filtros por grupo y fecha</p>
+    </div>
+    <div class="menu-item" onclick="renderCoordReportsV2('student')">
+      <div class="mi">📈</div>
+      <h3>Reporte de Permisos</h3>
+      <p>Estadísticas por mes, grado y motivo</p>
+    </div>
+  </div>`;
 }
 // ── SUBMENÚ: ADMINISTRAR DOCENTES ──
 function renderAdminDocentes() {
@@ -2069,7 +2125,7 @@ function buildTchAttTable(records, docenteMap) {
 }
 
 // ── STUDENT ATTENDANCE REPORTS V2 ──
-async function renderAttReportsV2() {
+async function renderAttReportsV2(origin='coord') {
   $app.innerHTML='<div class="loading"><div class="spin-big"></div><p>Cargando...</p></div>';
   const records = await fbGet('asistencia_estudiantes');
   const students = await fbGet('estudiantes');
@@ -2081,7 +2137,7 @@ async function renderAttReportsV2() {
   const groups=[...new Set(sorted.map(r=>r.grupo))].sort();
 
   $app.innerHTML = `
-  <button class="btn btn-outline btn-sm" onclick="renderCoordMenu()" style="margin-bottom:16px">← Volver</button>
+  <button class="btn btn-outline btn-sm" onclick="renderAdminEstudiantesReportes()" style="margin-bottom:16px">← Volver</button>
   <div style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:12px;margin-bottom:6px">
     <div><h2 class="sec-title">📅 Asistencia Estudiantil — Histórico</h2><p class="sec-sub">${sorted.length} registros</p></div>
     <button class="btn btn-outline btn-sm" onclick="window.print()">🖨️ Imprimir</button>
