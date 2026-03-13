@@ -1248,6 +1248,11 @@ function renderAdminEstudiantesReportes() {
       <h3>Reporte de Permisos</h3>
       <p>Estadísticas por mes, grado y motivo</p>
     </div>
+    <div class="menu-item" onclick="renderReporteIndividualEstudiante()">
+      <div class="mi">👤</div>
+      <h3>Consulta por Estudiante</h3>
+      <p>Permisos e inasistencias de un estudiante</p>
+    </div>
   </div>`;
 }
 // ── SUBMENÚ: ADMINISTRAR DOCENTES ──
@@ -1316,6 +1321,11 @@ function renderAdminDocentesReportes() {
       <div class="mi">📈</div>
       <h3>Reporte de Permisos</h3>
       <p>Estadísticas por mes y asignación</p>
+    </div>
+    <div class="menu-item" onclick="renderReporteIndividualDocente()">
+      <div class="mi">👤</div>
+      <h3>Consulta por Docente</h3>
+      <p>Permisos e inasistencias de un docente</p>
     </div>
   </div>`;
 }
@@ -3201,6 +3211,245 @@ function diasEscolaresTag(fechaInicio, fechaRegreso) {
   if(dias === 0) return '';
   const color = dias >= 5 ? 'var(--red)' : dias >= 3 ? 'var(--gold)' : 'var(--purple)';
   return `<span style="font-size:.75rem;font-weight:700;color:${color};background:${color}18;padding:2px 8px;border-radius:20px;white-space:nowrap">📅 ${dias} día${dias!==1?'s':''} escolar${dias!==1?'es':''}</span>`;
+}
+
+
+// ══════════════════════════════════════════════
+// REPORTE INDIVIDUAL — ESTUDIANTE
+// ══════════════════════════════════════════════
+async function renderReporteIndividualEstudiante() {
+  $app.innerHTML='<div class="loading"><div class="spin-big"></div><p>Cargando...</p></div>';
+  const [students, groups] = await Promise.all([fbGet('estudiantes'), fbGet('grupos')]);
+
+  // Build group list sorted
+  const grupoNames = [...new Set(students.map(s=>s.grupo))].sort();
+
+  $app.innerHTML = `
+  <button class="btn btn-outline btn-sm" onclick="renderAdminEstudiantesReportes()" style="margin-bottom:16px">← Volver</button>
+  <h2 class="sec-title">👤 Consulta por Estudiante</h2>
+  <p class="sec-sub">Permisos e inasistencias individuales</p>
+  <div class="card fade-up" style="margin-bottom:16px">
+    <div style="display:flex;gap:12px;flex-wrap:wrap;align-items:flex-end">
+      <div class="form-group" style="min-width:180px">
+        <label>Grupo</label>
+        <select id="rieGrupo" onchange="rieCargarEstudiantes()">
+          <option value="">— Seleccione grupo —</option>
+          ${grupoNames.map(g=>`<option value="${g}">${g}</option>`).join('')}
+        </select>
+      </div>
+      <div class="form-group" style="min-width:220px">
+        <label>Estudiante</label>
+        <select id="rieEstudiante" onchange="rieMostrarReporte()">
+          <option value="">— Seleccione estudiante —</option>
+        </select>
+      </div>
+    </div>
+  </div>
+  <div id="rieResult"></div>`;
+
+  window._rieStudents = students;
+}
+
+function rieCargarEstudiantes() {
+  const grupo = document.getElementById('rieGrupo')?.value;
+  const sel = document.getElementById('rieEstudiante');
+  sel.innerHTML = '<option value="">— Seleccione estudiante —</option>';
+  if(!grupo) return;
+  const lista = (window._rieStudents||[])
+    .filter(s=>s.grupo===grupo)
+    .sort((a,b)=>a.nombre.localeCompare(b.nombre));
+  lista.forEach(s=>{
+    const opt = document.createElement('option');
+    opt.value = s.id;
+    opt.textContent = s.nombre;
+    sel.appendChild(opt);
+  });
+  document.getElementById('rieResult').innerHTML='';
+}
+
+async function rieMostrarReporte() {
+  const stuId = document.getElementById('rieEstudiante')?.value;
+  const grupo = document.getElementById('rieGrupo')?.value;
+  const result = document.getElementById('rieResult');
+  if(!stuId) { result.innerHTML=''; return; }
+
+  result.innerHTML='<div class="loading"><div class="spin-big"></div><p>Cargando...</p></div>';
+
+  const stu = (window._rieStudents||[]).find(s=>s.id===stuId);
+  const [permisos, asistencias] = await Promise.all([
+    fbGet('permisos'),
+    fbGet('asistencia_estudiantes')
+  ]);
+
+  const misPermisos = permisos
+    .filter(r=>r.type==='student' && r.studentName===stu.nombre && r.grade===grupo)
+    .sort((a,b)=>(b.absenceDate||'').localeCompare(a.absenceDate||''));
+
+  const misInasistencias = asistencias
+    .filter(r=>r.grupo===grupo && (r.ausentes||[]).includes(stuId))
+    .sort((a,b)=>(b.fecha||'').localeCompare(a.fecha||''));
+
+  result.innerHTML = `
+  <div class="card fade-up" style="margin-bottom:14px">
+    <div style="display:flex;align-items:center;gap:14px;margin-bottom:4px">
+      <div style="width:48px;height:48px;border-radius:50%;background:var(--purple);color:#fff;display:flex;align-items:center;justify-content:center;font-weight:700;font-size:1.1rem;flex-shrink:0">${initials(stu.nombre)}</div>
+      <div>
+        <div style="font-weight:700;font-size:1.05rem">${stu.nombre}</div>
+        <div style="font-size:.85rem;color:var(--gray)">${grupo}</div>
+      </div>
+    </div>
+    <div class="stats" style="margin-top:12px">
+      <div class="stat-card"><div class="num">${misPermisos.length}</div><div class="lbl">Permisos</div></div>
+      <div class="stat-card green"><div class="num">${misPermisos.filter(r=>r.status==='approved').length}</div><div class="lbl">Aprobados</div></div>
+      <div class="stat-card red"><div class="num">${misInasistencias.length}</div><div class="lbl">Inasistencias</div></div>
+    </div>
+  </div>
+
+  <div class="card fade-up" style="margin-bottom:14px">
+    <h3 style="font-size:.95rem;font-weight:700;margin-bottom:12px">📋 Permisos Registrados</h3>
+    ${misPermisos.length===0
+      ? '<div class="empty" style="padding:16px 0"><div class="ei" style="font-size:1.8rem">📋</div><p>Sin permisos registrados</p></div>'
+      : `<div style="overflow-x:auto"><table class="tbl">
+          <thead><tr><th>Fecha</th><th>Motivo</th><th>Inicio</th><th>Regreso</th><th>Días</th><th>Estado</th></tr></thead>
+          <tbody>${misPermisos.map(r=>`<tr>
+            <td>${(r.createdAt||'').slice(0,10)}</td>
+            <td>${reasonIcon(r.reasonType)} ${r.reasonType}</td>
+            <td style="white-space:nowrap">${fmtDate(r.absenceDate)}</td>
+            <td style="white-space:nowrap">${fmtDate(r.returnDate)}</td>
+            <td>${diasEscolaresTag(r.absenceDate,r.returnDate)||'—'}</td>
+            <td>${statusBadge(r.status)}</td>
+          </tr>`).join('')}</tbody>
+        </table></div>`}
+  </div>
+
+  <div class="card fade-up">
+    <h3 style="font-size:.95rem;font-weight:700;margin-bottom:12px">📅 Inasistencias Registradas</h3>
+    ${misInasistencias.length===0
+      ? '<div class="empty" style="padding:16px 0"><div class="ei" style="font-size:1.8rem">📅</div><p>Sin inasistencias registradas</p></div>'
+      : `<div style="overflow-x:auto"><table class="tbl">
+          <thead><tr><th>Fecha</th><th>Docente que pasó lista</th></tr></thead>
+          <tbody>${misInasistencias.map(r=>`<tr>
+            <td><strong>${fmtDate(r.fecha)}</strong></td>
+            <td>${r.docenteNombre||'—'}</td>
+          </tr>`).join('')}</tbody>
+        </table></div>`}
+  </div>`;
+}
+
+// ══════════════════════════════════════════════
+// REPORTE INDIVIDUAL — DOCENTE
+// ══════════════════════════════════════════════
+async function renderReporteIndividualDocente() {
+  $app.innerHTML='<div class="loading"><div class="spin-big"></div><p>Cargando...</p></div>';
+  const docentes = await fbGet('docentes');
+  const sorted = docentes.sort((a,b)=>a.name.localeCompare(b.name));
+
+  $app.innerHTML = `
+  <button class="btn btn-outline btn-sm" onclick="renderAdminDocentesReportes()" style="margin-bottom:16px">← Volver</button>
+  <h2 class="sec-title">👤 Consulta por Docente</h2>
+  <p class="sec-sub">Permisos e inasistencias individuales</p>
+  <div class="card fade-up" style="margin-bottom:16px">
+    <div style="display:flex;gap:12px;flex-wrap:wrap;align-items:flex-end">
+      <div class="form-group" style="min-width:180px">
+        <label>Jornada</label>
+        <select id="ridJornada" onchange="ridCargarDocentes()">
+          <option value="">— Todas —</option>
+          <option>Mañana</option>
+          <option>Tarde</option>
+        </select>
+      </div>
+      <div class="form-group" style="min-width:240px">
+        <label>Docente</label>
+        <select id="ridDocente" onchange="ridMostrarReporte()">
+          <option value="">— Seleccione docente —</option>
+          ${sorted.map(d=>`<option value="${d.id}">${d.name} · ${d.jornada}</option>`).join('')}
+        </select>
+      </div>
+    </div>
+  </div>
+  <div id="ridResult"></div>`;
+
+  window._ridDocentes = sorted;
+}
+
+function ridCargarDocentes() {
+  const jornada = document.getElementById('ridJornada')?.value;
+  const sel = document.getElementById('ridDocente');
+  const lista = jornada
+    ? (window._ridDocentes||[]).filter(d=>d.jornada===jornada)
+    : (window._ridDocentes||[]);
+  sel.innerHTML = '<option value="">— Seleccione docente —</option>' +
+    lista.map(d=>`<option value="${d.id}">${d.name} · ${d.jornada}</option>`).join('');
+  document.getElementById('ridResult').innerHTML='';
+}
+
+async function ridMostrarReporte() {
+  const docId = document.getElementById('ridDocente')?.value;
+  const result = document.getElementById('ridResult');
+  if(!docId) { result.innerHTML=''; return; }
+
+  result.innerHTML='<div class="loading"><div class="spin-big"></div><p>Cargando...</p></div>';
+
+  const doc = (window._ridDocentes||[]).find(d=>d.id===docId);
+  const [permisos, asistencias] = await Promise.all([
+    fbGet('permisos'),
+    fbGet('asistencia_docentes')
+  ]);
+
+  const misPermisos = permisos
+    .filter(r=>r.type==='teacher' && r.teacherName===doc.name)
+    .sort((a,b)=>(b.absenceDate||'').localeCompare(a.absenceDate||''));
+
+  const misInasistencias = asistencias
+    .filter(r=>r.jornada===doc.jornada && (r.ausentes||[]).includes(docId))
+    .sort((a,b)=>(b.fecha||'').localeCompare(a.fecha||''));
+
+  result.innerHTML = `
+  <div class="card fade-up" style="margin-bottom:14px">
+    <div style="display:flex;align-items:center;gap:14px;margin-bottom:4px">
+      <div style="width:48px;height:48px;border-radius:50%;background:var(--purple);color:#fff;display:flex;align-items:center;justify-content:center;font-weight:700;font-size:1.1rem;flex-shrink:0">${initials(doc.name)}</div>
+      <div>
+        <div style="font-weight:700;font-size:1.05rem">${doc.name}</div>
+        <div style="font-size:.85rem;color:var(--gray)">${doc.asignacion||''} · ${doc.jornada==='Mañana'?'☀️ Mañana':'🌇 Tarde'} · ${doc.materia||''}</div>
+      </div>
+    </div>
+    <div class="stats" style="margin-top:12px">
+      <div class="stat-card"><div class="num">${misPermisos.length}</div><div class="lbl">Permisos</div></div>
+      <div class="stat-card green"><div class="num">${misPermisos.filter(r=>r.status==='approved').length}</div><div class="lbl">Aprobados</div></div>
+      <div class="stat-card red"><div class="num">${misInasistencias.length}</div><div class="lbl">Inasistencias</div></div>
+    </div>
+  </div>
+
+  <div class="card fade-up" style="margin-bottom:14px">
+    <h3 style="font-size:.95rem;font-weight:700;margin-bottom:12px">📋 Permisos Registrados</h3>
+    ${misPermisos.length===0
+      ? '<div class="empty" style="padding:16px 0"><div class="ei" style="font-size:1.8rem">📋</div><p>Sin permisos registrados</p></div>'
+      : `<div style="overflow-x:auto"><table class="tbl">
+          <thead><tr><th>Fecha</th><th>Motivo</th><th>Inicio</th><th>Regreso</th><th>Días</th><th>Jornada</th><th>Estado</th></tr></thead>
+          <tbody>${misPermisos.map(r=>`<tr>
+            <td>${(r.createdAt||'').slice(0,10)}</td>
+            <td>${reasonIcon(r.reasonType)} ${r.reasonType}</td>
+            <td style="white-space:nowrap">${fmtDate(r.absenceDate)}</td>
+            <td style="white-space:nowrap">${fmtDate(r.returnDate)}</td>
+            <td>${diasEscolaresTag(r.absenceDate,r.returnDate)||'—'}</td>
+            <td>${r.jornada==='Mañana'?'☀️ Mañana':'🌇 Tarde'}</td>
+            <td>${statusBadge(r.status)}</td>
+          </tr>`).join('')}</tbody>
+        </table></div>`}
+  </div>
+
+  <div class="card fade-up">
+    <h3 style="font-size:.95rem;font-weight:700;margin-bottom:12px">📅 Inasistencias Registradas</h3>
+    ${misInasistencias.length===0
+      ? '<div class="empty" style="padding:16px 0"><div class="ei" style="font-size:1.8rem">📅</div><p>Sin inasistencias registradas</p></div>'
+      : `<div style="overflow-x:auto"><table class="tbl">
+          <thead><tr><th>Fecha</th><th>Jornada</th></tr></thead>
+          <tbody>${misInasistencias.map(r=>`<tr>
+            <td><strong>${fmtDate(r.fecha)}</strong></td>
+            <td>${r.jornada==='Mañana'?'☀️ Mañana':'🌇 Tarde'}</td>
+          </tr>`).join('')}</tbody>
+        </table></div>`}
+  </div>`;
 }
 
 // ══════════════════════════════════════════════
