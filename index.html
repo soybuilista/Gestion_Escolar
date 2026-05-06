@@ -1208,6 +1208,11 @@ function renderAdminEstudiantes() {
       <h3>Reportes</h3>
       <p>Asistencia y permisos estudiantiles</p>
     </div>
+    <div class="menu-item" onclick="renderObservadorMenu('coordinator')">
+      <div class="mi">📒</div>
+      <h3>Observador del Estudiante</h3>
+      <p>Ficha de seguimiento integral por estudiante</p>
+    </div>
   </div>`;
 }
 
@@ -2652,6 +2657,11 @@ function renderSecretEstudiantes() {
       <h3>Gestionar Estudiantes</h3>
       <p>Ver y editar datos de estudiantes</p>
     </div>
+    <div class="menu-item" onclick="renderObservadorMenu('secretary')">
+      <div class="mi">📒</div>
+      <h3>Observador del Estudiante</h3>
+      <p>Consultar ficha de seguimiento</p>
+    </div>
   </div>`;
 }
 
@@ -3450,6 +3460,838 @@ async function ridMostrarReporte() {
           </tr>`).join('')}</tbody>
         </table></div>`}
   </div>`;
+}
+
+
+// ══════════════════════════════════════════════
+// OBSERVADOR DEL ESTUDIANTE
+// ══════════════════════════════════════════════
+
+const OBS_INST = {
+  municipio: 'PLANETA RICA',
+  nombre: 'I.E. ALFONSO BUILES CORREA',
+  dane: '123555000230',
+  nit: '812001917-9',
+  rectora: 'LINA AYDEE MONTES OYOLA',
+  direccion: 'Planeta Rica - Córdoba'
+};
+
+const OBS_DESEMPENO = [
+  { id:'motricidadFina', label:'Motricidad fina', desc:'La motricidad fina es el tipo de motricidad que permite hacer movimientos pequeños y muy precisos.' },
+  { id:'motricidadGruesa', label:'Motricidad gruesa', desc:'La motricidad gruesa tiene que ver con los cambios de posición del cuerpo y la capacidad de mantener el equilibrio.' },
+  { id:'espacioTemporal', label:'Ubicación espacio-temporal', desc:'Es la orientación del propio cuerpo en cuanto al mundo, es saber dónde estoy, y donde está lo que me rodea así como la orientación en el tiempo físico en el cual transcurren los hechos.' },
+  { id:'aptitudVerbal', label:'Aptitud verbal', desc:'Es la capacidad para comprender palabras, oraciones, textos y relaciones entre los mismos.' },
+  { id:'aptitudNumerica', label:'Aptitud numérica', desc:'La aptitud numérica toma en cuenta la aplicación inductiva y deductiva de principios básicos de la matemática para resolver situaciones que exigen la utilización del número en sus diferentes manifestaciones.' },
+  { id:'liderazgo', label:'Liderazgo', desc:'Conjunto de habilidades de una persona para influir en la manera de pensar o de actuar de un grupo determinado, motivándolos para hacer que las tareas que deben llevar a cabo sean realizadas de manera eficiente ayudando de esta forma a la consecución de los objetivos del grupo.' },
+  { id:'comportamiento', label:'Comportamiento', desc:'Conjunto de conductas manifestadas por una persona en relación con la convivencia con las demás personas.' }
+];
+
+const OBS_DIFICULTADES = [
+  { id:'dislexia', label:'Dislexia', desc:'Alteración de la capacidad de leer por la que se confunden o se altera el orden de letras, sílabas o palabras.' },
+  { id:'discalculia', label:'Discalculia', desc:'Dificultad de aprendizaje específica en matemáticas.' },
+  { id:'tdah', label:'TDAH', desc:'Trastorno por déficit de atención e hiperactividad.' },
+  { id:'disgrafía', label:'Disgrafía', desc:'Dificultad específica en el aprendizaje de la escritura.' },
+  { id:'otra', label:'Otra', desc:'Otra dificultad de aprendizaje.' }
+];
+
+const OBS_VALORES = ['Excelente','Sobresaliente','Aceptable','Básico','Bajo','No aplica'];
+const OBS_DIFICULTAD_VALORES = ['No presenta','Leve','Moderada','Severa'];
+
+const OBS_SEGUIMIENTO = [
+  { aspecto:'ATENCIÓN Y MOTIVACIÓN', criterios:[
+    'Mantiene la motivación y una actitud positiva',
+    'Se interesa por los temas y muestra gusto por los saberes',
+    'Muestra dedicación y constancia',
+    'Manifiesta curiosidad y aspiraciones',
+    'Tiene buena capacidad de escucha y observación',
+    'Tiene buena disposición para el trabajo y se concentra con facilidad',
+    'Acoge las sugerencias que se le hacen'
+  ]},
+  { aspecto:'RESPETO', criterios:[
+    'Reconoce y acata la autoridad',
+    'Es sereno(a) en el trato con los demás y trata a los demás con respeto',
+    'Es honesto en sus actos cotidianos',
+    'Acepta las diferencias y limitaciones de los demás y respeta su opinión'
+  ]},
+  { aspecto:'COOPERACIÓN', criterios:[
+    'Demuestra capacidad para trabajar en grupo y se integra con facilidad',
+    'Participa en las diferentes actividades de beneficio común',
+    'Le sirve como apoyo a quienes presentan limitaciones',
+    'Demuestra capacidad de liderazgo'
+  ]},
+  { aspecto:'CONVIVENCIA', criterios:[
+    'Cumple con las normas del manual de convivencia',
+    'Participa adecuadamente en la resolución de conflictos propios y ajenos',
+    'Muestra simpatía y cordialidad en el trato con los demás',
+    'Demuestra capacidad para controlar sus impulsos muestra autocontrol',
+    'Mide las consecuencias de sus actos',
+    'Emplea un vocabulario y tono adecuado hacia los demás'
+  ]},
+  { aspecto:'RESPONSABILIDAD', criterios:[
+    'Cumplo con mis tareas y compromisos',
+    'Traigo los materiales necesarios para el trabajo en clase',
+    'Llego puntual al colegio y a las clases',
+    'Cuido los materiales y enseres escolares',
+    'Soy cuidadoso(a) con mi entorno',
+    'Soy limpio y ordenado'
+  ]}
+];
+
+const OBS_SEG_VALS = ['N','AV','CS','S'];
+const OBS_SEG_LABELS = { N:'Nunca', AV:'Algunas Veces', CS:'Casi Siempre', S:'Siempre' };
+
+// ── MENU OBSERVADOR ──
+async function renderObservadorMenu(origin) {
+  window._obsOrigin = origin;
+  $app.innerHTML='<div class="loading"><div class="spin-big"></div><p>Cargando...</p></div>';
+  const [students, grupos] = await Promise.all([fbGet('estudiantes'), fbGet('grupos')]);
+  const año = new Date().getFullYear();
+
+  // Filter students based on role
+  let myGroup = null;
+  if(origin==='teacher') {
+    const grps = await fbGet('grupos');
+    myGroup = grps.find(g=>g.directorCedula===S.user?.cedula);
+  }
+
+  const stuList = origin==='teacher' && myGroup
+    ? students.filter(s=>s.grupo===myGroup.nombre)
+    : students;
+
+  const grupoNames = [...new Set(stuList.map(s=>s.grupo))].sort();
+
+  $app.innerHTML = `
+  <button class="btn btn-outline btn-sm" onclick="${origin==='teacher'?'renderTeacherMisReportes()':origin==='secretary'?'renderSecretEstudiantes()':'renderAdminEstudiantes()'}" style="margin-bottom:16px">← Volver</button>
+  <h2 class="sec-title">📒 Observador del Estudiante</h2>
+  <p class="sec-sub">Ficha de seguimiento integral · Año ${año}</p>
+  <div class="card fade-up" style="margin-bottom:16px">
+    <div style="display:flex;gap:12px;flex-wrap:wrap;align-items:flex-end">
+      <div class="form-group" style="min-width:180px">
+        <label>Grupo</label>
+        <select id="obsGrupo" onchange="obsCargarEstudiantes()">
+          <option value="">— Seleccione grupo —</option>
+          ${grupoNames.map(g=>`<option>${g}</option>`).join('')}
+        </select>
+      </div>
+      <div class="form-group" style="min-width:240px">
+        <label>Estudiante</label>
+        <select id="obsEstudiante">
+          <option value="">— Seleccione estudiante —</option>
+        </select>
+      </div>
+      <div class="form-group">
+        <label>Año</label>
+        <select id="obsAño">
+          ${[año, año-1, año-2].map(y=>`<option value="${y}">${y}</option>`).join('')}
+        </select>
+      </div>
+      <button class="btn btn-purple" onclick="obsAbrir()">📂 Abrir Ficha</button>
+    </div>
+  </div>
+  <div id="obsResult"></div>`;
+
+  window._obsStudents = stuList;
+}
+
+function obsCargarEstudiantes() {
+  const grupo = document.getElementById('obsGrupo')?.value;
+  const sel = document.getElementById('obsEstudiante');
+  sel.innerHTML = '<option value="">— Seleccione estudiante —</option>';
+  if(!grupo) return;
+  (window._obsStudents||[])
+    .filter(s=>s.grupo===grupo)
+    .sort((a,b)=>a.nombre.localeCompare(b.nombre))
+    .forEach(s=>{
+      const o=document.createElement('option');
+      o.value=s.id; o.textContent=s.nombre;
+      sel.appendChild(o);
+    });
+}
+
+async function obsAbrir() {
+  const stuId = document.getElementById('obsEstudiante')?.value;
+  const año = document.getElementById('obsAño')?.value;
+  if(!stuId) { toast('⚠️ Seleccione un estudiante','err'); return; }
+  const stu = (window._obsStudents||[]).find(s=>s.id===stuId);
+  const docId = `${stuId}_${año}`;
+  const result = document.getElementById('obsResult');
+  result.innerHTML='<div class="loading"><div class="spin-big"></div><p>Cargando ficha...</p></div>';
+
+  let obs = null;
+  try {
+    const all = await fbGet('observadores');
+    obs = all.find(o=>o.id===docId);
+  } catch(e) {}
+
+  if(!obs) {
+    // New record
+    result.innerHTML = `
+    <div class="card fade-up">
+      <div style="text-align:center;padding:20px 0">
+        <div style="font-size:2.5rem;margin-bottom:8px">📒</div>
+        <h3 style="font-family:'Playfair Display',serif;margin-bottom:6px">${stu.nombre}</h3>
+        <p style="color:var(--gray);margin-bottom:20px">No existe ficha para el año ${año}. ¿Desea crearla?</p>
+        <button class="btn btn-purple" onclick="obsCrearFicha('${stuId}','${año}')">➕ Crear Ficha ${año}</button>
+      </div>
+    </div>`;
+  } else {
+    window._obsActual = obs;
+    window._obsStuActual = stu;
+    obsRenderFicha(obs, stu);
+  }
+}
+
+async function obsCrearFicha(stuId, año) {
+  const stu = (window._obsStudents||[]).find(s=>s.id===stuId);
+  const docId = `${stuId}_${año}`;
+  const nueva = {
+    estudianteId: stuId,
+    nombreEstudiante: stu.nombre,
+    grupo: stu.grupo,
+    año: parseInt(año),
+    foto: '',
+    datosBasicos: {
+      documento: stu.documento||'',
+      fechaNacimiento: stu.fechaNacimiento||'',
+      lugarNacimiento: '',
+      lugarExpedicion: '',
+      direccion: '',
+      zona: 'URBANA',
+      municipio: 'PLANETA RICA',
+      telefono: stu.telefonoAcudiente||'',
+      email: '',
+      estrato: '1',
+      sisben: '1',
+      desplazado: 'N',
+      tipoSangre: 'Desconocido',
+      eps: '',
+      talla: '',
+      peso: '',
+      capacidadExcepcional: 'No aplica',
+      discapacidad: 'No aplica',
+      grupoEtnico: 'NO APLICA',
+      hijoMadreCabeza: 'N',
+      madreCabeza: 'N'
+    },
+    desempeno: {},
+    dificultades: {},
+    preferencias: {
+      deporte: '',
+      musica: '',
+      profesion: '',
+      religion: '',
+      arte: ''
+    },
+    familias: [{ parentesco:'MADRE', nombre: stu.nombreAcudiente||'', documento:'', direccion:'', telefono: stu.telefonoAcudiente||'', acudiente: true }],
+    periodos: {},
+    createdAt: new Date().toISOString()
+  };
+  await fbSet('observadores', docId, nueva);
+  window._obsActual = { ...nueva, id: docId };
+  window._obsStuActual = stu;
+  toast('✅ Ficha creada exitosamente','ok');
+  obsRenderFicha(window._obsActual, stu);
+}
+
+function obsRenderFicha(obs, stu) {
+  const origin = window._obsOrigin||'coordinator';
+  const canEdit = origin !== 'secretary';
+  const $r = document.getElementById('obsResult');
+  $r.innerHTML = `
+  <div class="card fade-up" style="margin-bottom:14px">
+    <div style="display:flex;align-items:center;gap:16px;flex-wrap:wrap">
+      <div style="position:relative;width:80px;height:80px;flex-shrink:0">
+        <img src="${obs.foto||'data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 80 80%22><rect width=%2280%22 height=%2280%22 fill=%22%236c47ff22%22/><text x=%2240%22 y=%2248%22 font-size=%2228%22 text-anchor=%22middle%22 fill=%22%236c47ff%22>👤</text></svg>'}"
+          style="width:80px;height:80px;border-radius:12px;object-fit:cover;border:2px solid var(--border)">
+        ${canEdit?`<label style="position:absolute;bottom:-6px;right:-6px;background:var(--purple);color:#fff;border-radius:50%;width:24px;height:24px;display:flex;align-items:center;justify-content:center;cursor:pointer;font-size:.8rem" title="Cambiar foto">
+          📷<input type="file" accept="image/*" style="display:none" onchange="obsSubirFoto(this,'${obs.id}')">
+        </label>`:''}
+      </div>
+      <div style="flex:1">
+        <h3 style="font-family:'Playfair Display',serif;font-size:1.1rem;margin-bottom:2px">${stu.nombre}</h3>
+        <div style="font-size:.85rem;color:var(--gray)">${obs.grupo} · Año ${obs.año}</div>
+        <div style="font-size:.85rem;color:var(--gray)">Doc: ${obs.datosBasicos?.documento||'—'}</div>
+      </div>
+      <div style="display:flex;gap:8px;flex-wrap:wrap">
+        ${canEdit?`<button class="btn btn-purple btn-sm" onclick="obsEditarDatos('${obs.id}')">✏️ Editar Datos</button>`:''}
+        <button class="btn btn-outline btn-sm" onclick="obsVerPeriodos('${obs.id}')">📋 Periodos</button>
+        <button class="btn btn-outline btn-sm" onclick="obsImprimir('${obs.id}')">🖨️ Imprimir</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- DATOS BÁSICOS RESUMEN -->
+  <div class="card fade-up" style="margin-bottom:14px">
+    <h3 style="font-size:.95rem;font-weight:700;margin-bottom:12px;color:var(--purple)">📋 Datos Básicos</h3>
+    <div class="drow">
+      <div class="df"><div class="dl">Documento</div><div class="dv">${obs.datosBasicos?.documento||'—'}</div></div>
+      <div class="df"><div class="dl">F. Nacimiento</div><div class="dv">${obs.datosBasicos?.fechaNacimiento||'—'}</div></div>
+      <div class="df"><div class="dl">Lugar Nacimiento</div><div class="dv">${obs.datosBasicos?.lugarNacimiento||'—'}</div></div>
+      <div class="df"><div class="dl">Dirección</div><div class="dv">${obs.datosBasicos?.direccion||'—'}</div></div>
+      <div class="df"><div class="dl">Municipio</div><div class="dv">${obs.datosBasicos?.municipio||'—'}</div></div>
+      <div class="df"><div class="dl">Teléfono</div><div class="dv">${obs.datosBasicos?.telefono||'—'}</div></div>
+      <div class="df"><div class="dl">EPS</div><div class="dv">${obs.datosBasicos?.eps||'—'}</div></div>
+      <div class="df"><div class="dl">Tipo de Sangre</div><div class="dv">${obs.datosBasicos?.tipoSangre||'—'}</div></div>
+    </div>
+  </div>
+
+  <!-- PERIODOS -->
+  <div class="card fade-up">
+    <h3 style="font-size:.95rem;font-weight:700;margin-bottom:12px;color:var(--purple)">📅 Periodos Registrados</h3>
+    <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(140px,1fr));gap:10px">
+      ${[1,2,3,4].map(p=>{
+        const tiene = obs.periodos?.[p];
+        return `<div class="card" style="text-align:center;cursor:pointer;border:2px solid ${tiene?'var(--purple)':'var(--border)'}" onclick="obsAbrirPeriodo('${obs.id}',${p})">
+          <div style="font-size:1.5rem;margin-bottom:4px">${tiene?'📝':'📄'}</div>
+          <div style="font-weight:700;font-size:.9rem">Periodo ${p}</div>
+          <div style="font-size:.75rem;color:var(--gray);margin-top:2px">${tiene?'Registrado':'Sin datos'}</div>
+        </div>`;
+      }).join('')}
+    </div>
+  </div>`;
+}
+
+async function obsSubirFoto(input, docId) {
+  const file = input.files[0];
+  if(!file) return;
+  toast('⏳ Subiendo foto...','ok');
+  try {
+    const url = await uploadToCloudinary(file);
+    await fbSet('observadores', docId, { ...window._obsActual, foto: url });
+    window._obsActual.foto = url;
+    toast('✅ Foto actualizada','ok');
+    obsRenderFicha(window._obsActual, window._obsStuActual);
+  } catch(e) {
+    toast('❌ Error subiendo foto: '+e.message,'err');
+  }
+}
+
+// ── EDITAR DATOS BÁSICOS ──
+function obsEditarDatos(docId) {
+  const obs = window._obsActual;
+  const d = obs.datosBasicos||{};
+  const $r = document.getElementById('obsResult');
+
+  $r.innerHTML = `
+  <div class="card fade-up">
+    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:16px">
+      <h3 style="font-family:'Playfair Display',serif;font-size:1.1rem">✏️ Editar Datos — ${obs.nombreEstudiante}</h3>
+      <button class="btn btn-outline btn-sm" onclick="obsRenderFicha(window._obsActual,window._obsStuActual)">← Volver</button>
+    </div>
+
+    <h4 style="font-size:.85rem;font-weight:700;color:var(--purple);margin:0 0 12px;text-transform:uppercase">Datos Básicos</h4>
+    <div class="form-row">
+      <div class="form-group"><label>Documento</label><input id="od_doc" value="${d.documento||''}"></div>
+      <div class="form-group"><label>F. Nacimiento</label><input type="date" id="od_fnac" value="${d.fechaNacimiento||''}"></div>
+      <div class="form-group"><label>Lugar de Nacimiento</label><input id="od_lnac" value="${d.lugarNacimiento||''}"></div>
+      <div class="form-group"><label>Lugar Expedición Doc.</label><input id="od_lexp" value="${d.lugarExpedicion||''}"></div>
+    </div>
+    <div class="form-row">
+      <div class="form-group"><label>Dirección</label><input id="od_dir" value="${d.direccion||''}"></div>
+      <div class="form-group"><label>Zona</label>
+        <select id="od_zona">
+          ${['URBANA','RURAL'].map(z=>`<option ${d.zona===z?'selected':''}>${z}</option>`).join('')}
+        </select>
+      </div>
+      <div class="form-group"><label>Municipio</label><input id="od_mun" value="${d.municipio||'Planeta Rica'}"></div>
+      <div class="form-group"><label>Teléfono</label><input id="od_tel" value="${d.telefono||''}"></div>
+    </div>
+    <div class="form-row">
+      <div class="form-group"><label>Email</label><input id="od_email" value="${d.email||''}"></div>
+      <div class="form-group"><label>EPS</label><input id="od_eps" value="${d.eps||''}"></div>
+      <div class="form-group"><label>Tipo de Sangre</label>
+        <select id="od_sangre">
+          ${['Desconocido','O+','O-','A+','A-','B+','B-','AB+','AB-'].map(s=>`<option ${d.tipoSangre===s?'selected':''}>${s}</option>`).join('')}
+        </select>
+      </div>
+    </div>
+
+    <h4 style="font-size:.85rem;font-weight:700;color:var(--purple);margin:16px 0 12px;text-transform:uppercase">Caracterización</h4>
+    <div class="form-row">
+      <div class="form-group"><label>Estrato</label>
+        <select id="od_estrato">
+          ${['1','2','3','4','5','6'].map(s=>`<option ${d.estrato===s?'selected':''}>${s}</option>`).join('')}
+        </select>
+      </div>
+      <div class="form-group"><label>Nivel Sisben</label>
+        <select id="od_sisben">
+          ${['1','2','3','4'].map(s=>`<option ${d.sisben===s?'selected':''}>${s}</option>`).join('')}
+        </select>
+      </div>
+      <div class="form-group"><label>Desplazado</label>
+        <select id="od_desp">
+          <option ${d.desplazado==='S'?'selected':''} value="S">Sí</option>
+          <option ${d.desplazado==='N'?'selected':''} value="N">No</option>
+        </select>
+      </div>
+      <div class="form-group"><label>Talla (cm)</label><input id="od_talla" type="number" value="${d.talla||''}"></div>
+      <div class="form-group"><label>Peso (kg)</label><input id="od_peso" type="number" step="0.1" value="${d.peso||''}"></div>
+    </div>
+    <div class="form-row">
+      <div class="form-group"><label>Capacidad Excepcional</label>
+        <select id="od_capexc">
+          ${['No aplica','Superdotado','Talento académico','Talento artístico','Talento deportivo'].map(s=>`<option ${d.capacidadExcepcional===s?'selected':''}>${s}</option>`).join('')}
+        </select>
+      </div>
+      <div class="form-group"><label>Discapacidad</label>
+        <select id="od_disc">
+          ${['No aplica','Visual','Auditiva','Motora','Cognitiva','Múltiple'].map(s=>`<option ${d.discapacidad===s?'selected':''}>${s}</option>`).join('')}
+        </select>
+      </div>
+      <div class="form-group"><label>Grupo Étnico</label>
+        <select id="od_etnico">
+          ${['NO APLICA','AFRODESCENDIENTE','INDÍGENA','RAIZAL','PALENQUERO','ROM/GITANO'].map(s=>`<option ${d.grupoEtnico===s?'selected':''}>${s}</option>`).join('')}
+        </select>
+      </div>
+    </div>
+    <div class="form-row">
+      <div class="form-group"><label>Hijo Madre Cabeza Familia</label>
+        <select id="od_hijomcf">
+          <option ${d.hijoMadreCabeza==='S'?'selected':''} value="S">Sí</option>
+          <option ${d.hijoMadreCabeza==='N'?'selected':''} value="N">No</option>
+        </select>
+      </div>
+      <div class="form-group"><label>Madre Cabeza de Familia</label>
+        <select id="od_mcf">
+          <option ${d.madreCabeza==='S'?'selected':''} value="S">Sí</option>
+          <option ${d.madreCabeza==='N'?'selected':''} value="N">No</option>
+        </select>
+      </div>
+    </div>
+
+    <h4 style="font-size:.85rem;font-weight:700;color:var(--purple);margin:16px 0 12px;text-transform:uppercase">Nivel de Desempeño</h4>
+    <div style="overflow-x:auto"><table class="tbl">
+      <thead><tr><th>Característica</th><th>Valor</th></tr></thead>
+      <tbody>
+        ${OBS_DESEMPENO.map(d2=>`<tr>
+          <td><strong>${d2.label}</strong><br><small style="color:var(--gray)">${d2.desc}</small></td>
+          <td><select id="od_des_${d2.id}">
+            ${OBS_VALORES.map(v=>`<option ${(obs.desempeno?.[d2.id]||'')=== v?'selected':''}>${v}</option>`).join('')}
+          </select></td>
+        </tr>`).join('')}
+      </tbody>
+    </table></div>
+
+    <h4 style="font-size:.85rem;font-weight:700;color:var(--purple);margin:16px 0 12px;text-transform:uppercase">Dificultades de Aprendizaje</h4>
+    <div style="overflow-x:auto"><table class="tbl">
+      <thead><tr><th>Característica</th><th>Valor</th></tr></thead>
+      <tbody>
+        ${OBS_DIFICULTADES.map(d2=>`<tr>
+          <td><strong>${d2.label}</strong><br><small style="color:var(--gray)">${d2.desc}</small></td>
+          <td><select id="od_dif_${d2.id}">
+            ${OBS_DIFICULTAD_VALORES.map(v=>`<option ${(obs.dificultades?.[d2.id]||'')=== v?'selected':''}>${v}</option>`).join('')}
+          </select></td>
+        </tr>`).join('')}
+      </tbody>
+    </table></div>
+
+    <h4 style="font-size:.85rem;font-weight:700;color:var(--purple);margin:16px 0 12px;text-transform:uppercase">Preferencias</h4>
+    <div class="form-row">
+      <div class="form-group"><label>Deporte preferido</label>
+        <select id="od_pref_deporte">
+          ${['','Fútbol','Baloncesto','Voleibol','Atletismo','Natación','Salto','Otro'].map(v=>`<option ${(obs.preferencias?.deporte||'')=== v?'selected':''}>${v}</option>`).join('')}
+        </select>
+      </div>
+      <div class="form-group"><label>Música favorita</label>
+        <select id="od_pref_musica">
+          ${['','Vallenato','Reguetón','Pop','Rock','Clásica','Salsa','Otro'].map(v=>`<option ${(obs.preferencias?.musica||'')=== v?'selected':''}>${v}</option>`).join('')}
+        </select>
+      </div>
+      <div class="form-group"><label>Profesión u oficio</label>
+        <select id="od_pref_profesion">
+          ${['','Médico','Ingeniero','Artista','Deportista','Docente','Abogado','Otro'].map(v=>`<option ${(obs.preferencias?.profesion||'')=== v?'selected':''}>${v}</option>`).join('')}
+        </select>
+      </div>
+      <div class="form-group"><label>Religión</label>
+        <select id="od_pref_religion">
+          ${['','Católico','Cristiano','Protestante','Testigo de Jehová','Otra','Ninguna'].map(v=>`<option ${(obs.preferencias?.religion||'')=== v?'selected':''}>${v}</option>`).join('')}
+        </select>
+      </div>
+      <div class="form-group"><label>Arte</label>
+        <select id="od_pref_arte">
+          ${['','Pintura','Música','Teatro','Danza','Escultura','Literatura','Otro'].map(v=>`<option ${(obs.preferencias?.arte||'')=== v?'selected':''}>${v}</option>`).join('')}
+        </select>
+      </div>
+    </div>
+
+    <h4 style="font-size:.85rem;font-weight:700;color:var(--purple);margin:16px 0 12px;text-transform:uppercase">Información Familiar</h4>
+    <div id="od_familias">
+      ${(obs.familias||[]).map((f,i)=>`
+      <div class="form-row" style="border:1px solid var(--border);border-radius:10px;padding:12px;margin-bottom:8px">
+        <div class="form-group"><label>Parentesco</label>
+          <select id="od_fam_par_${i}">
+            ${['MADRE','PADRE','ABUELO/A','TÍO/A','HERMANO/A','ACUDIENTE','OTRO'].map(v=>`<option ${f.parentesco===v?'selected':''}>${v}</option>`).join('')}
+          </select>
+        </div>
+        <div class="form-group"><label>Nombre Completo</label><input id="od_fam_nom_${i}" value="${f.nombre||''}"></div>
+        <div class="form-group"><label>Documento</label><input id="od_fam_doc_${i}" value="${f.documento||''}"></div>
+        <div class="form-group"><label>Dirección</label><input id="od_fam_dir_${i}" value="${f.direccion||''}"></div>
+        <div class="form-group"><label>Teléfono</label><input id="od_fam_tel_${i}" value="${f.telefono||''}"></div>
+        <div class="form-group" style="display:flex;align-items:flex-end">
+          <label style="display:flex;align-items:center;gap:6px;cursor:pointer">
+            <input type="checkbox" id="od_fam_acu_${i}" ${f.acudiente?'checked':''}> Es acudiente
+          </label>
+        </div>
+      </div>`).join('')}
+    </div>
+    <button class="btn btn-outline btn-sm" onclick="obsAgregarFamiliar()" style="margin-bottom:16px">➕ Agregar familiar</button>
+
+    <div class="actions" style="justify-content:flex-end;margin-top:16px">
+      <button class="btn btn-outline" onclick="obsRenderFicha(window._obsActual,window._obsStuActual)">Cancelar</button>
+      <button class="btn btn-purple" onclick="obsGuardarDatos('${docId}')">💾 Guardar Datos</button>
+    </div>
+  </div>`;
+}
+
+function obsAgregarFamiliar() {
+  const container = document.getElementById('od_familias');
+  const i = container.children.length;
+  const div = document.createElement('div');
+  div.className='form-row';
+  div.style.cssText='border:1px solid var(--border);border-radius:10px;padding:12px;margin-bottom:8px';
+  div.innerHTML=`
+    <div class="form-group"><label>Parentesco</label>
+      <select id="od_fam_par_${i}">
+        ${['MADRE','PADRE','ABUELO/A','TÍO/A','HERMANO/A','ACUDIENTE','OTRO'].map(v=>`<option>${v}</option>`).join('')}
+      </select>
+    </div>
+    <div class="form-group"><label>Nombre Completo</label><input id="od_fam_nom_${i}" value=""></div>
+    <div class="form-group"><label>Documento</label><input id="od_fam_doc_${i}" value=""></div>
+    <div class="form-group"><label>Dirección</label><input id="od_fam_dir_${i}" value=""></div>
+    <div class="form-group"><label>Teléfono</label><input id="od_fam_tel_${i}" value=""></div>
+    <div class="form-group" style="display:flex;align-items:flex-end">
+      <label style="display:flex;align-items:center;gap:6px;cursor:pointer">
+        <input type="checkbox" id="od_fam_acu_${i}"> Es acudiente
+      </label>
+    </div>`;
+  container.appendChild(div);
+}
+
+async function obsGuardarDatos(docId) {
+  const obs = window._obsActual;
+  const n = document.getElementById('od_familias')?.children.length||0;
+  const familias = [];
+  for(let i=0;i<n;i++) {
+    familias.push({
+      parentesco: document.getElementById(`od_fam_par_${i}`)?.value||'',
+      nombre: document.getElementById(`od_fam_nom_${i}`)?.value||'',
+      documento: document.getElementById(`od_fam_doc_${i}`)?.value||'',
+      direccion: document.getElementById(`od_fam_dir_${i}`)?.value||'',
+      telefono: document.getElementById(`od_fam_tel_${i}`)?.value||'',
+      acudiente: document.getElementById(`od_fam_acu_${i}`)?.checked||false
+    });
+  }
+  const desempeno = {};
+  OBS_DESEMPENO.forEach(d=>{ desempeno[d.id]=document.getElementById(`od_des_${d.id}`)?.value||''; });
+  const dificultades = {};
+  OBS_DIFICULTADES.forEach(d=>{ dificultades[d.id]=document.getElementById(`od_dif_${d.id}`)?.value||''; });
+
+  const updated = { ...obs,
+    datosBasicos: {
+      documento: document.getElementById('od_doc')?.value||'',
+      fechaNacimiento: document.getElementById('od_fnac')?.value||'',
+      lugarNacimiento: document.getElementById('od_lnac')?.value||'',
+      lugarExpedicion: document.getElementById('od_lexp')?.value||'',
+      direccion: document.getElementById('od_dir')?.value||'',
+      zona: document.getElementById('od_zona')?.value||'',
+      municipio: document.getElementById('od_mun')?.value||'',
+      telefono: document.getElementById('od_tel')?.value||'',
+      email: document.getElementById('od_email')?.value||'',
+      eps: document.getElementById('od_eps')?.value||'',
+      tipoSangre: document.getElementById('od_sangre')?.value||'',
+      estrato: document.getElementById('od_estrato')?.value||'',
+      sisben: document.getElementById('od_sisben')?.value||'',
+      desplazado: document.getElementById('od_desp')?.value||'',
+      talla: document.getElementById('od_talla')?.value||'',
+      peso: document.getElementById('od_peso')?.value||'',
+      capacidadExcepcional: document.getElementById('od_capexc')?.value||'',
+      discapacidad: document.getElementById('od_disc')?.value||'',
+      grupoEtnico: document.getElementById('od_etnico')?.value||'',
+      hijoMadreCabeza: document.getElementById('od_hijomcf')?.value||'',
+      madreCabeza: document.getElementById('od_mcf')?.value||''
+    },
+    desempeno, dificultades,
+    preferencias: {
+      deporte: document.getElementById('od_pref_deporte')?.value||'',
+      musica: document.getElementById('od_pref_musica')?.value||'',
+      profesion: document.getElementById('od_pref_profesion')?.value||'',
+      religion: document.getElementById('od_pref_religion')?.value||'',
+      arte: document.getElementById('od_pref_arte')?.value||''
+    },
+    familias,
+    updatedAt: new Date().toISOString()
+  };
+  await fbSet('observadores', docId, updated);
+  window._obsActual = updated;
+  toast('✅ Datos guardados exitosamente','ok');
+  obsRenderFicha(updated, window._obsStuActual);
+}
+
+// ── PERIODOS ──
+function obsAbrirPeriodo(docId, periodo) {
+  const obs = window._obsActual;
+  const origin = window._obsOrigin||'coordinator';
+  const canEdit = origin !== 'secretary';
+  const per = obs.periodos?.[periodo]||{ seguimiento:{}, anotaciones:[] };
+  const $r = document.getElementById('obsResult');
+
+  $r.innerHTML = `
+  <div class="card fade-up">
+    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:16px;flex-wrap:wrap;gap:8px">
+      <h3 style="font-family:'Playfair Display',serif;font-size:1.1rem">📝 Periodo ${periodo} — ${obs.nombreEstudiante}</h3>
+      <button class="btn btn-outline btn-sm" onclick="obsRenderFicha(window._obsActual,window._obsStuActual)">← Volver</button>
+    </div>
+
+    <h4 style="font-size:.85rem;font-weight:700;color:var(--purple);margin:0 0 12px;text-transform:uppercase">Informe Periódico de Seguimiento</h4>
+    <p style="font-size:.8rem;color:var(--gray);margin-bottom:12px">Convenciones: <strong>N</strong>=Nunca · <strong>AV</strong>=Algunas Veces · <strong>CS</strong>=Casi Siempre · <strong>S</strong>=Siempre</p>
+    <div style="overflow-x:auto"><table class="tbl">
+      <thead><tr><th>Aspecto</th><th>Criterio</th>${OBS_SEG_VALS.map(v=>`<th style="text-align:center;min-width:40px">${v}</th>`).join('')}</tr></thead>
+      <tbody>
+        ${OBS_SEGUIMIENTO.map(sec=>sec.criterios.map((crit,ci)=>{
+          const key = sec.aspecto.replace(/\s+/g,'_')+'_'+ci;
+          const val = per.seguimiento?.[key]||'';
+          return `<tr>
+            ${ci===0?`<td rowspan="${sec.criterios.length}" style="font-weight:700;font-size:.8rem;vertical-align:middle;background:var(--bg)">${sec.aspecto}</td>`:''}
+            <td style="font-size:.82rem">${crit}</td>
+            ${OBS_SEG_VALS.map(v=>`<td style="text-align:center">
+              ${canEdit
+                ? `<input type="radio" name="seg_${key}" value="${v}" ${val===v?'checked':''} onchange="window._segTemp=window._segTemp||{};window._segTemp['${key}']='${v}'">`
+                : `<span style="font-weight:700;color:var(--purple)">${val===v?'X':''}</span>`
+              }
+            </td>`).join('')}
+          </tr>`;
+        }).join('')).join('')}
+      </tbody>
+    </table></div>
+
+    ${canEdit?`
+    <h4 style="font-size:.85rem;font-weight:700;color:var(--purple);margin:20px 0 12px;text-transform:uppercase">📌 Agregar Anotación</h4>
+    <div class="form-row">
+      <div class="form-group"><label>Tipo</label>
+        <select id="per_tipo">
+          <option>FELICITACIÓN</option><option>RECOMENDACIÓN</option><option>LLAMADO DE ATENCIÓN</option><option>COMPROMISO</option><option>OBSERVACIÓN</option>
+        </select>
+      </div>
+    </div>
+    <div class="form-group"><label>Anotación</label><textarea id="per_anotacion" rows="3" placeholder="Describa la anotación..."></textarea></div>
+    <div class="form-group"><label>Compromiso del Estudiante</label><textarea id="per_comp_est" rows="2" placeholder="Compromiso del estudiante..."></textarea></div>
+    <div class="form-group"><label>Compromiso del Acudiente</label><textarea id="per_comp_acu" rows="2" placeholder="Compromiso del acudiente..."></textarea></div>
+    <div class="form-group"><label>Compromiso de la Institución</label><textarea id="per_comp_inst" rows="2" placeholder="Compromiso de la institución..."></textarea></div>
+    <button class="btn btn-outline btn-sm" onclick="obsAgregarAnotacion('${docId}',${periodo})" style="margin-bottom:16px">➕ Agregar Anotación</button>
+    `:''}
+
+    ${(per.anotaciones||[]).length>0?`
+    <h4 style="font-size:.85rem;font-weight:700;color:var(--purple);margin:16px 0 12px;text-transform:uppercase">📋 Anotaciones Registradas</h4>
+    ${(per.anotaciones||[]).map((a,i)=>`
+    <div class="card" style="margin-bottom:8px;border-left:3px solid var(--purple)">
+      <div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:6px">
+        <span style="font-weight:700;font-size:.85rem;color:var(--purple)">${a.tipo}</span>
+        <span style="font-size:.75rem;color:var(--gray)">${(a.fecha||'').slice(0,10)} · ${a.docente||''}</span>
+      </div>
+      <p style="font-size:.85rem;margin-bottom:4px">${a.anotacion}</p>
+      ${a.compEstudiante?`<p style="font-size:.8rem;color:var(--gray)">Est: ${a.compEstudiante}</p>`:''}
+      ${a.compAcudiente?`<p style="font-size:.8rem;color:var(--gray)">Acu: ${a.compAcudiente}</p>`:''}
+      ${a.compInstitucion?`<p style="font-size:.8rem;color:var(--gray)">Inst: ${a.compInstitucion}</p>`:''}
+    </div>`).join('')}
+    `:''}
+
+    ${canEdit?`
+    <div class="actions" style="justify-content:flex-end;margin-top:16px">
+      <button class="btn btn-outline" onclick="obsRenderFicha(window._obsActual,window._obsStuActual)">Cancelar</button>
+      <button class="btn btn-purple" onclick="obsGuardarPeriodo('${docId}',${periodo})">💾 Guardar Periodo ${periodo}</button>
+    </div>`:''}
+  </div>`;
+
+  window._segTemp = {};
+  // Pre-populate _segTemp with existing values
+  OBS_SEGUIMIENTO.forEach(sec=>sec.criterios.forEach((c,ci)=>{
+    const key = sec.aspecto.replace(/\s+/g,'_')+'_'+ci;
+    if(per.seguimiento?.[key]) window._segTemp[key]=per.seguimiento[key];
+  }));
+}
+
+async function obsAgregarAnotacion(docId, periodo) {
+  const tipo = document.getElementById('per_tipo')?.value;
+  const anotacion = document.getElementById('per_anotacion')?.value?.trim();
+  if(!anotacion) { toast('⚠️ Escriba la anotación','err'); return; }
+
+  const obs = window._obsActual;
+  const per = obs.periodos?.[periodo]||{ seguimiento:{}, anotaciones:[] };
+  const nuevaAnotacion = {
+    tipo,
+    anotacion,
+    compEstudiante: document.getElementById('per_comp_est')?.value||'',
+    compAcudiente: document.getElementById('per_comp_acu')?.value||'',
+    compInstitucion: document.getElementById('per_comp_inst')?.value||'',
+    docente: S.user?.name||S.user?.cedula||'Coordinador',
+    fecha: new Date().toISOString()
+  };
+
+  const anotaciones = [...(per.anotaciones||[]), nuevaAnotacion];
+  const updated = { ...obs, periodos: { ...obs.periodos, [periodo]: { ...per, anotaciones } } };
+  await fbSet('observadores', docId, updated);
+  window._obsActual = updated;
+  toast('✅ Anotación agregada','ok');
+  obsAbrirPeriodo(docId, periodo);
+}
+
+async function obsGuardarPeriodo(docId, periodo) {
+  const obs = window._obsActual;
+  const per = obs.periodos?.[periodo]||{ seguimiento:{}, anotaciones:[] };
+  const seguimiento = { ...(per.seguimiento||{}), ...(window._segTemp||{}) };
+  const updated = { ...obs, periodos: { ...obs.periodos, [periodo]: { ...per, seguimiento } } };
+  await fbSet('observadores', docId, updated);
+  window._obsActual = updated;
+  toast('✅ Periodo '+periodo+' guardado','ok');
+  obsRenderFicha(updated, window._obsStuActual);
+}
+
+// ── IMPRESIÓN ──
+function obsImprimir(docId) {
+  const obs = window._obsActual;
+  const d = obs.datosBasicos||{};
+  const inst = OBS_INST;
+  const año = obs.año;
+
+  const encabezado = `
+  <div style="text-align:center;margin-bottom:20px">
+    <div style="font-size:.85rem">${inst.municipio}</div>
+    <div style="font-size:1.1rem;font-weight:700">${inst.nombre}</div>
+    <div style="font-size:.8rem">Código DANE: ${inst.dane} - NIT: ${inst.nit}</div>
+  </div>`;
+
+  const portada = `
+  <div style="text-align:center;padding:40px 20px;page-break-after:always">
+    ${encabezado}
+    ${obs.foto?`<img src="${obs.foto}" style="width:130px;height:160px;object-fit:cover;border:2px solid #333;margin:20px auto;display:block">`:''}
+    <div style="font-size:1rem;margin-top:20px">FICHA OBSERVADOR DEL ESTUDIANTE</div>
+    <div style="font-size:1.3rem;font-weight:700">${obs.nombreEstudiante}</div>
+    <div style="font-size:.9rem;margin-top:8px">Doc: ${d.documento||'—'}</div>
+    <div style="font-size:.8rem;margin-top:20px">${inst.direccion}</div>
+  </div>`;
+
+  const datosPag = `
+  <div style="page-break-after:always">
+    ${encabezado}
+    <table border="1" cellpadding="6" cellspacing="0" style="width:100%;border-collapse:collapse;font-size:.8rem;margin-bottom:14px">
+      <tr><td colspan="4" style="text-align:center;font-weight:700;background:#eee">INFORMACIÓN DEL ESTUDIANTE</td></tr>
+      <tr><td><b>Estudiante</b></td><td colspan="3">${obs.nombreEstudiante}</td></tr>
+      <tr><td><b>Documento</b></td><td>${d.documento||'—'}</td><td><b>F. Nacimiento</b></td><td>${d.fechaNacimiento||'—'}</td></tr>
+      <tr><td><b>Lugar Nacimiento</b></td><td>${d.lugarNacimiento||'—'}</td><td><b>Lugar Exp.</b></td><td>${d.lugarExpedicion||'—'}</td></tr>
+      <tr><td><b>Dirección</b></td><td>${d.direccion||'—'}</td><td><b>Zona</b></td><td>${d.zona||'—'}</td></tr>
+      <tr><td><b>Municipio</b></td><td>${d.municipio||'—'}</td><td><b>Teléfono</b></td><td>${d.telefono||'—'}</td></tr>
+      <tr><td colspan="4" style="text-align:center;font-weight:700;background:#eee">Información de Caracterización</td></tr>
+      <tr><td><b>Estrato</b></td><td>${d.estrato||'—'}</td><td><b>Nivel Sisben</b></td><td>${d.sisben||'—'}</td></tr>
+      <tr><td><b>Desplazado</b></td><td>${d.desplazado||'—'}</td><td><b>Tipo de Sangre</b></td><td>${d.tipoSangre||'—'}</td></tr>
+      <tr><td><b>Talla</b></td><td>${d.talla||'0'}cm</td><td><b>Peso</b></td><td>${d.peso||'0.00'} Kg</td></tr>
+      <tr><td><b>Cap. Excepcional</b></td><td>${d.capacidadExcepcional||'—'}</td><td><b>Discapacidad</b></td><td>${d.discapacidad||'—'}</td></tr>
+      <tr><td><b>Grupo Étnico</b></td><td>${d.grupoEtnico||'—'}</td><td><b>EPS</b></td><td>${d.eps||'—'}</td></tr>
+      <tr><td><b>Hijo Madre Cabeza</b></td><td>${d.hijoMadreCabeza||'—'}</td><td><b>Madre Cabeza Familia</b></td><td>${d.madreCabeza||'—'}</td></tr>
+    </table>
+    <table border="1" cellpadding="6" cellspacing="0" style="width:100%;border-collapse:collapse;font-size:.8rem;margin-bottom:14px">
+      <tr><td colspan="3" style="text-align:center;font-weight:700;background:#eee">NIVEL DE DESEMPEÑO</td></tr>
+      <tr><td style="font-weight:700">CARACTERÍSTICA</td><td style="font-weight:700">VALOR</td><td style="font-weight:700">OBSERVACIÓN</td></tr>
+      ${OBS_DESEMPENO.filter(d2=>(obs.desempeno?.[d2.id]||'No aplica')!=='No aplica').map(d2=>`
+      <tr><td><b>${d2.label}</b><br><small>${d2.desc}</small></td><td>${obs.desempeno?.[d2.id]||'—'}</td><td></td></tr>`).join('')}
+    </table>
+    <table border="1" cellpadding="6" cellspacing="0" style="width:100%;border-collapse:collapse;font-size:.8rem;margin-bottom:14px">
+      <tr><td colspan="3" style="text-align:center;font-weight:700;background:#eee">DIFICULTADES DE APRENDIZAJE</td></tr>
+      <tr><td style="font-weight:700">CARACTERÍSTICA</td><td style="font-weight:700">VALOR</td><td style="font-weight:700">OBSERVACIÓN</td></tr>
+      ${OBS_DIFICULTADES.filter(d2=>(obs.dificultades?.[d2.id]||'No presenta')!=='No presenta').map(d2=>`
+      <tr><td><b>${d2.label}</b><br><small>${d2.desc}</small></td><td>${obs.dificultades?.[d2.id]||'—'}</td><td></td></tr>`).join('')}
+    </table>
+    <table border="1" cellpadding="6" cellspacing="0" style="width:100%;border-collapse:collapse;font-size:.8rem;margin-bottom:14px">
+      <tr><td colspan="5" style="text-align:center;font-weight:700;background:#eee">PREFERENCIAS</td></tr>
+      <tr><td><b>Deporte</b></td><td>${obs.preferencias?.deporte||'—'}</td><td><b>Música</b></td><td>${obs.preferencias?.musica||'—'}</td><td></td></tr>
+      <tr><td><b>Profesión</b></td><td>${obs.preferencias?.profesion||'—'}</td><td><b>Religión</b></td><td>${obs.preferencias?.religion||'—'}</td><td></td></tr>
+      <tr><td><b>Arte</b></td><td colspan="3">${obs.preferencias?.arte||'—'}</td><td></td></tr>
+    </table>
+    <table border="1" cellpadding="6" cellspacing="0" style="width:100%;border-collapse:collapse;font-size:.8rem">
+      <tr><td colspan="5" style="text-align:center;font-weight:700;background:#eee">INFORMACIÓN FAMILIAR</td></tr>
+      <tr><td><b>Parentesco</b></td><td><b>Nombre</b></td><td><b>Documento</b></td><td><b>Teléfono</b></td><td><b>Acudiente</b></td></tr>
+      ${(obs.familias||[]).map(f=>`<tr><td>${f.parentesco}</td><td>${f.nombre}</td><td>${f.documento||'—'}</td><td>${f.telefono||'—'}</td><td>${f.acudiente?'X':''}</td></tr>`).join('')}
+    </table>
+    <div style="text-align:center;margin-top:10px;font-size:.75rem">${inst.direccion}</div>
+  </div>`;
+
+  const periodosPags = [1,2,3,4].map(p=>{
+    const per = obs.periodos?.[p];
+    if(!per) return '';
+    const seg = per.seguimiento||{};
+    return `
+    <div style="page-break-after:always">
+      ${encabezado}
+      <div style="text-align:right;font-size:.85rem;margin-bottom:8px">Informe Periódico — Periodo ${p} · Año ${año}</div>
+      <div style="font-size:.82rem;margin-bottom:8px"><b>Estudiante:</b> ${obs.nombreEstudiante} &nbsp; <b>Grado:</b> ${obs.grupo} &nbsp; <b>Jornada:</b> ${obs.datosBasicos?.jornada||'—'}</div>
+      <table border="1" cellpadding="4" cellspacing="0" style="width:100%;border-collapse:collapse;font-size:.78rem;margin-bottom:12px">
+        <thead>
+          <tr>
+            <td style="font-weight:700;background:#eee">Aspecto</td>
+            <td style="font-weight:700;background:#eee">Criterio</td>
+            <td style="text-align:center;font-weight:700;background:#eee;min-width:25px">N</td>
+            <td style="text-align:center;font-weight:700;background:#eee;min-width:25px">AV</td>
+            <td style="text-align:center;font-weight:700;background:#eee;min-width:25px">CS</td>
+            <td style="text-align:center;font-weight:700;background:#eee;min-width:25px">S</td>
+          </tr>
+        </thead>
+        <tbody>
+          ${OBS_SEGUIMIENTO.map(sec=>sec.criterios.map((crit,ci)=>{
+            const key=sec.aspecto.replace(/\s+/g,'_')+'_'+ci;
+            const val=seg[key]||'';
+            return `<tr>
+              ${ci===0?`<td rowspan="${sec.criterios.length}" style="font-weight:700;vertical-align:middle;font-size:.75rem">${sec.aspecto}</td>`:''}
+              <td>${crit}</td>
+              ${OBS_SEG_VALS.map(v=>`<td style="text-align:center">${val===v?'X':''}</td>`).join('')}
+            </tr>`;
+          }).join('')).join('')}
+        </tbody>
+      </table>
+      <p style="font-size:.72rem"><b>Convenciones:</b> N=Nunca · AV=Algunas Veces · CS=Casi Siempre · S=Siempre</p>
+      ${(per.anotaciones||[]).length>0?`
+      <table border="1" cellpadding="5" cellspacing="0" style="width:100%;border-collapse:collapse;font-size:.78rem;margin-top:12px">
+        <tr><td colspan="4" style="text-align:center;font-weight:700;background:#eee">REGISTRO DE ANOTACIONES</td></tr>
+        <tr><td style="font-weight:700">Fecha/Tipo</td><td style="font-weight:700">Anotación</td><td style="font-weight:700">Comp. Estudiante</td><td style="font-weight:700">Comp. Acudiente</td></tr>
+        ${(per.anotaciones||[]).map(a=>`
+        <tr>
+          <td>${(a.fecha||'').slice(0,10)}<br><b>${a.tipo}</b></td>
+          <td>${a.anotacion}<br><small><b>Inst:</b> ${a.compInstitucion||''}</small><br><small>${a.docente||''}</small></td>
+          <td>${a.compEstudiante||''}</td>
+          <td>${a.compAcudiente||''}</td>
+        </tr>`).join('')}
+        <tr><td colspan="2">Firma Acudiente: ___________________________</td><td colspan="2">Firma Estudiante: ___________________________</td></tr>
+      </table>`:''}
+      <div style="text-align:center;margin-top:10px;font-size:.75rem">${inst.direccion}</div>
+    </div>`;
+  }).join('');
+
+  const firmas = `
+  <div>
+    ${encabezado}
+    <div style="margin-top:60px;display:flex;justify-content:space-around;text-align:center">
+      <div><div style="border-top:1px solid #000;width:200px;margin:0 auto;padding-top:6px;font-size:.85rem">${inst.rectora}<br><small>Rectora</small></div></div>
+      <div><div style="border-top:1px solid #000;width:200px;margin:0 auto;padding-top:6px;font-size:.85rem">Director(a) de Grupo<br><small>Firma</small></div></div>
+    </div>
+    <div style="text-align:center;margin-top:10px;font-size:.75rem">${inst.direccion}</div>
+  </div>`;
+
+  const win = window.open('','_blank');
+  win.document.write(`<!DOCTYPE html><html><head><meta charset="UTF-8">
+  <title>Observador — ${obs.nombreEstudiante} — ${año}</title>
+  <style>
+    body { font-family: Arial, sans-serif; font-size: 12px; color: #000; margin: 20px; }
+    table { width: 100%; }
+    @media print {
+      body { margin: 10mm; }
+      .no-print { display: none; }
+    }
+  </style></head><body>
+  <div class="no-print" style="margin-bottom:16px">
+    <button onclick="window.print()" style="padding:8px 20px;background:#6c47ff;color:#fff;border:none;border-radius:6px;cursor:pointer;font-size:14px">🖨️ Imprimir</button>
+    <button onclick="window.close()" style="padding:8px 20px;background:#eee;border:none;border-radius:6px;cursor:pointer;font-size:14px;margin-left:8px">✕ Cerrar</button>
+  </div>
+  ${portada}${datosPag}${periodosPags}${firmas}
+  </body></html>`);
+  win.document.close();
 }
 
 // ══════════════════════════════════════════════
