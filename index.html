@@ -4078,18 +4078,44 @@ function obsAbrirPeriodo(docId, periodo) {
 
     ${canEdit?`
     <h4 style="font-size:.85rem;font-weight:700;color:var(--purple);margin:20px 0 12px;text-transform:uppercase">📌 Agregar Anotación</h4>
-    <div class="form-row">
-      <div class="form-group"><label>Tipo</label>
-        <select id="per_tipo">
-          <option value="">— Tipo de anotación —</option><option>FELICITACIÓN</option><option>RECOMENDACIÓN</option><option>LLAMADO DE ATENCIÓN</option><option>OBSERVACIÓN</option>
-        </select>
+    <div class="card" style="background:var(--bg);border:1px solid var(--border);padding:16px;margin-bottom:12px">
+      <div class="form-row">
+        <div class="form-group" style="min-width:200px"><label>Tipo de Anotación</label>
+          <select id="per_tipo" onchange="obsActualizarListasAnotacion()">
+            <option value="">— Seleccione tipo —</option>
+            <option>FELICITACIÓN</option>
+            <option>RECOMENDACIÓN</option>
+            <option>LLAMADO DE ATENCIÓN</option>
+            <option>OBSERVACIÓN</option>
+          </select>
+        </div>
       </div>
+      <div class="form-group"><label>Anotación</label>
+        <select id="per_anotacion_sel" onchange="obsOnChangeSelect('per_anotacion_sel','per_anotacion_txt')">
+          <option value="">— Seleccione tipo primero —</option>
+        </select>
+        <textarea id="per_anotacion_txt" rows="2" placeholder="Escriba su anotación personalizada..." style="margin-top:6px;display:none"></textarea>
+      </div>
+      <div class="form-group"><label>Compromiso del Estudiante</label>
+        <select id="per_comp_est_sel" onchange="obsOnChangeSelect('per_comp_est_sel','per_comp_est_txt')">
+          <option value="">— Seleccione tipo primero —</option>
+        </select>
+        <textarea id="per_comp_est_txt" rows="2" placeholder="Escriba el compromiso personalizado..." style="margin-top:6px;display:none"></textarea>
+      </div>
+      <div class="form-group"><label>Compromiso del Acudiente</label>
+        <select id="per_comp_acu_sel" onchange="obsOnChangeSelect('per_comp_acu_sel','per_comp_acu_txt')">
+          <option value="">— Seleccione tipo primero —</option>
+        </select>
+        <textarea id="per_comp_acu_txt" rows="2" placeholder="Escriba el compromiso personalizado..." style="margin-top:6px;display:none"></textarea>
+      </div>
+      <div class="form-group"><label>Compromiso de la Institución</label>
+        <select id="per_comp_inst_sel" onchange="obsOnChangeSelect('per_comp_inst_sel','per_comp_inst_txt')">
+          <option value="">— Seleccione tipo primero —</option>
+        </select>
+        <textarea id="per_comp_inst_txt" rows="2" placeholder="Escriba el compromiso personalizado..." style="margin-top:6px;display:none"></textarea>
+      </div>
+      <button class="btn btn-purple btn-sm" onclick="obsAgregarAnotacion('${docId}',${periodo})">➕ Agregar Anotación</button>
     </div>
-    <div class="form-group"><label>Anotación</label><textarea id="per_anotacion" rows="3" placeholder="Describa la anotación..."></textarea></div>
-    <div class="form-group"><label>Compromiso del Estudiante</label><textarea id="per_comp_est" rows="2" placeholder="Compromiso del estudiante..."></textarea></div>
-    <div class="form-group"><label>Compromiso del Acudiente</label><textarea id="per_comp_acu" rows="2" placeholder="Compromiso del acudiente..."></textarea></div>
-    <div class="form-group"><label>Compromiso de la Institución</label><textarea id="per_comp_inst" rows="2" placeholder="Compromiso de la institución..."></textarea></div>
-    <button class="btn btn-outline btn-sm" onclick="obsAgregarAnotacion('${docId}',${periodo})" style="margin-bottom:16px">➕ Agregar Anotación</button>
     `:''}
 
     ${(per.anotaciones||[]).length>0?`
@@ -4124,12 +4150,12 @@ function obsAbrirPeriodo(docId, periodo) {
 
 async function obsAgregarAnotacion(docId, periodo) {
   const tipo = document.getElementById('per_tipo')?.value;
-  const anotacion = document.getElementById('per_anotacion')?.value?.trim();
   if(!tipo) { toast('⚠️ Seleccione el tipo de anotación','err'); return; }
-  if(!anotacion) { toast('⚠️ Escriba la anotación','err'); return; }
-  const compEst = document.getElementById('per_comp_est')?.value?.trim();
-  const compAcu = document.getElementById('per_comp_acu')?.value?.trim();
-  const compInst = document.getElementById('per_comp_inst')?.value?.trim();
+  const anotacion = obsGetAnotacionValue('per_anotacion_sel','per_anotacion_txt','anotaciones');
+  if(!anotacion) { toast('⚠️ Seleccione o escriba la anotación','err'); return; }
+  const compEst  = obsGetAnotacionValue('per_comp_est_sel','per_comp_est_txt','compEstudiante');
+  const compAcu  = obsGetAnotacionValue('per_comp_acu_sel','per_comp_acu_txt','compAcudiente');
+  const compInst = obsGetAnotacionValue('per_comp_inst_sel','per_comp_inst_txt','compInstitucion');
   if(!compEst||!compAcu||!compInst){ toast('⚠️ Complete todos los compromisos (estudiante, acudiente e institución)','err'); return; }
 
   const obs = window._obsActual;
@@ -4335,6 +4361,181 @@ function obsImprimir(docId) {
   ${portada}${datosPag}${periodosPags}${firmas}
   </body></html>`);
   win.document.close();
+}
+
+
+// ══════════════════════════════════════════════
+// OBSERVADOR — LISTAS PREDEFINIDAS DE ANOTACIONES
+// ══════════════════════════════════════════════
+const OBS_ANOTACIONES = {
+  'FELICITACIÓN': {
+    anotaciones: [
+      'Felicitaciones por su excelente desempeño académico, actitud positiva y liderazgo demostrado durante este periodo.',
+      'Se destaca por su dedicación, constancia y compromiso con las actividades escolares. ¡Sigue adelante!',
+      'Felicitaciones por su comportamiento ejemplar, respeto hacia sus compañeros y docentes, y por ser un modelo a seguir.',
+      'Se reconoce su gran esfuerzo y mejora significativa en su rendimiento académico y convivencia escolar.',
+      'Felicitaciones por su participación activa, creatividad y entusiasmo en todas las actividades del periodo.'
+    ],
+    compEstudiante: [
+      'Continuar esforzándome y manteniendo este nivel de desempeño en todos los aspectos escolares.',
+      'Seguir siendo un ejemplo para mis compañeros y mantener mi actitud positiva frente al aprendizaje.',
+      'Fortalecer aún más mis habilidades y seguir participando activamente en las actividades del colegio.',
+      'Mantener mi buen comportamiento, dedicación y seguir cumpliendo con mis responsabilidades académicas.',
+      'Compartir mis conocimientos con mis compañeros y apoyarlos cuando lo necesiten.'
+    ],
+    compAcudiente: [
+      'Seguir motivando y acompañando al estudiante en casa para mantener este excelente desempeño.',
+      'Continuar el apoyo en casa, reforzando los hábitos de estudio y el cumplimiento de tareas.',
+      'Felicitarse por el proceso de formación en casa y continuar con el acompañamiento permanente.',
+      'Mantener la comunicación constante con la institución para apoyar el proceso del estudiante.',
+      'Reconocer los logros del estudiante en casa y seguir motivándolo a alcanzar nuevas metas.'
+    ],
+    compInstitucion: [
+      'Seguir aportando nuevas herramientas y estrategias didácticas para fortalecer las competencias del estudiante.',
+      'Brindar espacios de participación que permitan al estudiante seguir desarrollando sus habilidades.',
+      'Continuar el acompañamiento pedagógico y reconocer públicamente los logros del estudiante.',
+      'Mantener el ambiente escolar positivo que favorece el desarrollo integral del estudiante.',
+      'Ofrecer oportunidades de liderazgo y participación para potenciar las capacidades del estudiante.'
+    ]
+  },
+  'RECOMENDACIÓN': {
+    anotaciones: [
+      'Se recomienda reforzar en casa los hábitos de estudio y el cumplimiento oportuno de tareas y compromisos académicos.',
+      'Se recomienda mejorar la atención y concentración durante las clases para optimizar su rendimiento académico.',
+      'Se sugiere trabajar en el fortalecimiento de las relaciones interpersonales y el respeto hacia sus compañeros.',
+      'Se recomienda mejorar la puntualidad y asistencia a clases para no afectar su proceso de aprendizaje.',
+      'Se sugiere dedicar más tiempo al estudio en casa y solicitar apoyo cuando tenga dificultades académicas.'
+    ],
+    compEstudiante: [
+      'Me comprometo a mejorar mis hábitos de estudio, cumplir con mis tareas y llegar puntual a clases.',
+      'Me comprometo a prestar mayor atención en clases y participar activamente en las actividades académicas.',
+      'Me comprometo a mejorar mis relaciones con mis compañeros, siendo más respetuoso y tolerante.',
+      'Me comprometo a asistir puntualmente a todas las clases y a comunicar oportunamente cualquier dificultad.',
+      'Me comprometo a dedicar tiempo diario al estudio y a pedir ayuda cuando no entienda los temas.'
+    ],
+    compAcudiente: [
+      'Me comprometo a supervisar las tareas en casa, establecer horarios de estudio y asegurar la asistencia puntual.',
+      'Me comprometo a revisar el cuaderno del estudiante, firmar circulares y asistir a las citaciones del colegio.',
+      'Me comprometo a dialogar con el estudiante sobre la importancia del respeto y la convivencia escolar.',
+      'Me comprometo a garantizar la asistencia y puntualidad del estudiante y a justificar oportunamente las ausencias.',
+      'Me comprometo a apoyar al estudiante en sus dificultades académicas y buscar ayuda adicional si es necesario.'
+    ],
+    compInstitucion: [
+      'Brindar seguimiento personalizado al estudiante y mantener comunicación continua con la familia.',
+      'Implementar estrategias pedagógicas diferenciadas para atender las necesidades del estudiante.',
+      'Citar a los padres o acudientes periódicamente para hacer seguimiento al proceso del estudiante.',
+      'Proporcionar material de apoyo y actividades de refuerzo para fortalecer las áreas con dificultad.',
+      'Realizar seguimiento semanal del estudiante y reportar avances o retrocesos a la familia oportunamente.'
+    ]
+  },
+  'LLAMADO DE ATENCIÓN': {
+    anotaciones: [
+      'Se realiza llamado de atención por su comportamiento inadecuado en el aula, irrespeto hacia compañeros y docentes.',
+      'Se llama la atención por el incumplimiento reiterado de tareas, trabajos y compromisos académicos.',
+      'Se realiza llamado de atención por las constantes interrupciones durante las clases que afectan el ambiente escolar.',
+      'Se llama la atención por el uso inadecuado del uniforme y el incumplimiento de las normas del manual de convivencia.',
+      'Se realiza llamado de atención por sus frecuentes ausencias y llegadas tarde que afectan su rendimiento académico.'
+    ],
+    compEstudiante: [
+      'Me comprometo a mejorar mi comportamiento, respetar a mis compañeros y docentes, y cumplir las normas del colegio.',
+      'Me comprometo a entregar todas mis tareas a tiempo, estudiar diariamente y cumplir con mis responsabilidades.',
+      'Me comprometo a guardar silencio durante las clases, escuchar con atención y no interrumpir a mis compañeros.',
+      'Me comprometo a usar correctamente el uniforme y a cumplir todas las normas establecidas en el manual de convivencia.',
+      'Me comprometo a asistir puntualmente a todas las clases y a justificar oportunamente cualquier ausencia.'
+    ],
+    compAcudiente: [
+      'Me comprometo a hablar con el estudiante sobre su comportamiento y a hacer seguimiento diario desde el hogar.',
+      'Me comprometo a revisar y firmar las tareas del estudiante y a supervisar el cumplimiento de sus compromisos.',
+      'Me comprometo a establecer normas claras en casa que refuercen la disciplina y el respeto en el colegio.',
+      'Me comprometo a verificar diariamente que el estudiante porte correctamente el uniforme y cumpla las normas.',
+      'Me comprometo a garantizar la asistencia y puntualidad del estudiante y a reportar oportunamente las ausencias.'
+    ],
+    compInstitucion: [
+      'Realizar seguimiento semanal del comportamiento del estudiante y comunicar avances a la familia.',
+      'Aplicar el debido proceso según el manual de convivencia y brindar acompañamiento al estudiante.',
+      'Coordinar con el equipo docente estrategias para mejorar la convivencia y el ambiente en el aula.',
+      'Citar a los padres o acudientes para informar la situación y acordar compromisos de mejora conjuntos.',
+      'Remitir al estudiante a orientación escolar para recibir acompañamiento y apoyo psicosocial.'
+    ]
+  },
+  'OBSERVACIÓN': {
+    anotaciones: [
+      'Se observa que el estudiante presenta dificultades en la comprensión de algunos temas académicos que requieren refuerzo.',
+      'Se nota cierta desmotivación frente a las actividades escolares. Se recomienda acompañamiento desde el hogar.',
+      'Se observa que el estudiante ha mejorado progresivamente en su comportamiento y rendimiento durante el periodo.',
+      'Se evidencian dificultades en las relaciones con algunos compañeros. Se trabajará en estrategias de convivencia.',
+      'Se observa que el estudiante requiere mayor apoyo en casa para consolidar los aprendizajes trabajados en clase.'
+    ],
+    compEstudiante: [
+      'Me comprometo a pedir ayuda cuando tenga dificultades y a esforzarme más en los temas que se me dificultan.',
+      'Me comprometo a participar con más entusiasmo en las actividades del colegio y a mejorar mi actitud.',
+      'Me comprometo a seguir mejorando y a mantener el esfuerzo que he venido realizando durante el periodo.',
+      'Me comprometo a mejorar mis relaciones con mis compañeros, siendo más respetuoso y colaborativo.',
+      'Me comprometo a estudiar más en casa, repasar los temas vistos y consultar lo que no entiendo.'
+    ],
+    compAcudiente: [
+      'Me comprometo a reforzar en casa los temas con dificultad y a buscar apoyo adicional si es necesario.',
+      'Me comprometo a dialogar con el estudiante sobre la importancia del estudio y a motivarlo constantemente.',
+      'Me comprometo a reconocer los avances del estudiante y a seguir apoyando su proceso de mejora.',
+      'Me comprometo a hablar con el estudiante sobre la convivencia y a fomentar el respeto hacia los demás.',
+      'Me comprometo a acompañar al estudiante en sus tareas, establecer horarios de estudio y apagar distractores.'
+    ],
+    compInstitucion: [
+      'Realizar seguimiento continuo al proceso del estudiante y brindar refuerzo en las áreas con dificultad.',
+      'Implementar estrategias motivacionales para fortalecer el interés del estudiante por el aprendizaje.',
+      'Continuar el acompañamiento pedagógico y comunicar a la familia los avances observados.',
+      'Trabajar con el grupo en estrategias de integración y convivencia para mejorar las relaciones entre pares.',
+      'Proporcionar material de apoyo adicional y espacios de tutoría para fortalecer los aprendizajes del estudiante.'
+    ]
+  }
+};
+
+function obsActualizarListasAnotacion() {
+  const tipo = document.getElementById('per_tipo')?.value;
+  const data = OBS_ANOTACIONES[tipo]||null;
+
+  const selIds = ['per_anotacion_sel','per_comp_est_sel','per_comp_acu_sel','per_comp_inst_sel'];
+  const keys   = ['anotaciones','compEstudiante','compAcudiente','compInstitucion'];
+
+  selIds.forEach((selId, i) => {
+    const sel = document.getElementById(selId);
+    if(!sel) return;
+    if(!data) {
+      sel.innerHTML = '<option value="">— Seleccione tipo primero —</option>';
+      return;
+    }
+    const opts = data[keys[i]]||[];
+    sel.innerHTML = '<option value="">— Seleccione una opción —</option>' +
+      opts.map((o,j)=>`<option value="${j}">${o.length>80?o.slice(0,80)+'…':o}</option>`).join('') +
+      '<option value="otra">✏️ Otra (escribir manualmente)</option>';
+    // Reset textarea
+    const txtId = selId.replace('_sel','_txt');
+    const txt = document.getElementById(txtId);
+    if(txt) { txt.style.display='none'; txt.value=''; }
+  });
+}
+
+function obsOnChangeSelect(selId, txtId) {
+  const val = document.getElementById(selId)?.value;
+  const txt = document.getElementById(txtId);
+  if(!txt) return;
+  if(val==='otra') {
+    txt.style.display='block';
+    txt.value='';
+    txt.focus();
+  } else {
+    txt.style.display='none';
+  }
+}
+
+function obsGetAnotacionValue(selId, txtId, key) {
+  const tipo = document.getElementById('per_tipo')?.value;
+  const val = document.getElementById(selId)?.value;
+  if(!val) return '';
+  if(val==='otra') return document.getElementById(txtId)?.value?.trim()||'';
+  const data = OBS_ANOTACIONES[tipo]||{};
+  const opts = data[key]||[];
+  return opts[parseInt(val)]||'';
 }
 
 // ══════════════════════════════════════════════
