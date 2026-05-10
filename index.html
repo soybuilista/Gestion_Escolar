@@ -3966,6 +3966,18 @@ function obsAgregarFamiliar() {
 
 async function obsGuardarDatos(docId) {
   const obs = window._obsActual;
+  // CAMBIO 5: Validar desempeño, dificultades, preferencias y familia
+  const desVacios = OBS_DESEMPENO.filter(d=>!document.getElementById(`od_des_${d.id}`)?.value);
+  if(desVacios.length>0){ toast(`⚠️ Complete Nivel de Desempeño: ${desVacios[0].label}`,'err'); return; }
+  const difVacios = OBS_DIFICULTADES.filter(d=>!document.getElementById(`od_dif_${d.id}`)?.value);
+  if(difVacios.length>0){ toast(`⚠️ Complete Dificultades: ${difVacios[0].label}`,'err'); return; }
+  const prefCampos = ['deporte','musica','profesion','religion','arte'];
+  const prefVacios = prefCampos.filter(p=>!document.getElementById(`od_pref_${p}`)?.value);
+  if(prefVacios.length>0){ toast('⚠️ Complete todos los campos de Preferencias','err'); return; }
+  const nFam = document.getElementById('od_familias')?.children.length||0;
+  if(nFam===0){ toast('⚠️ Agregue al menos un familiar','err'); return; }
+  const famNombre = document.getElementById('od_fam_nom_0')?.value?.trim();
+  if(!famNombre){ toast('⚠️ Complete el nombre del familiar','err'); return; }
   const n = document.getElementById('od_familias')?.children.length||0;
   const familias = [];
   for(let i=0;i<n;i++) {
@@ -3984,18 +3996,7 @@ async function obsGuardarDatos(docId) {
   OBS_DIFICULTADES.forEach(d=>{ dificultades[d.id]=document.getElementById(`od_dif_${d.id}`)?.value||''; });
   dificultades.otraDesc = document.getElementById('od_dif_otra_txt')?.value||'';
 
-  // CAMBIO 5: Validar desempeño, dificultades, preferencias y familia
-  const desVacios = OBS_DESEMPENO.filter(d=>!document.getElementById(`od_des_${d.id}`)?.value);
-  if(desVacios.length>0){ toast(`⚠️ Complete Nivel de Desempeño: ${desVacios[0].label}`,'err'); return; }
-  const difVacios = OBS_DIFICULTADES.filter(d=>!document.getElementById(`od_dif_${d.id}`)?.value);
-  if(difVacios.length>0){ toast(`⚠️ Complete Dificultades: ${difVacios[0].label}`,'err'); return; }
-  const prefCampos = ['deporte','musica','profesion','religion','arte'];
-  const prefVacios = prefCampos.filter(p=>!document.getElementById(`od_pref_${p}`)?.value);
-  if(prefVacios.length>0){ toast('⚠️ Complete todos los campos de Preferencias','err'); return; }
-  const nFam = document.getElementById('od_familias')?.children.length||0;
-  if(nFam===0){ toast('⚠️ Agregue al menos un familiar','err'); return; }
-  const famNombre = document.getElementById('od_fam_nom_0')?.value?.trim();
-  if(!famNombre){ toast('⚠️ Complete el nombre del familiar','err'); return; }
+
 
   const updated = { ...obs,
     datosBasicos: {
@@ -4144,18 +4145,7 @@ async function obsAgregarAnotacion(docId, periodo) {
   };
 
   const anotaciones = [...(per.anotaciones||[]), nuevaAnotacion];
-  // CAMBIO 5: Validar desempeño, dificultades, preferencias y familia
-  const desVacios = OBS_DESEMPENO.filter(d=>!document.getElementById(`od_des_${d.id}`)?.value);
-  if(desVacios.length>0){ toast(`⚠️ Complete Nivel de Desempeño: ${desVacios[0].label}`,'err'); return; }
-  const difVacios = OBS_DIFICULTADES.filter(d=>!document.getElementById(`od_dif_${d.id}`)?.value);
-  if(difVacios.length>0){ toast(`⚠️ Complete Dificultades: ${difVacios[0].label}`,'err'); return; }
-  const prefCampos = ['deporte','musica','profesion','religion','arte'];
-  const prefVacios = prefCampos.filter(p=>!document.getElementById(`od_pref_${p}`)?.value);
-  if(prefVacios.length>0){ toast('⚠️ Complete todos los campos de Preferencias','err'); return; }
-  const nFam = document.getElementById('od_familias')?.children.length||0;
-  if(nFam===0){ toast('⚠️ Agregue al menos un familiar','err'); return; }
-  const famNombre = document.getElementById('od_fam_nom_0')?.value?.trim();
-  if(!famNombre){ toast('⚠️ Complete el nombre del familiar','err'); return; }
+
 
   const updated = { ...obs, periodos: { ...obs.periodos, [periodo]: { ...per, anotaciones } } };
   await fbSet('observadores', docId, updated);
@@ -4190,18 +4180,7 @@ async function obsGuardarPeriodo(docId, periodo) {
   }
 
   const seguimiento = { ...(per.seguimiento||{}), ...(window._segTemp||{}) };
-  // CAMBIO 5: Validar desempeño, dificultades, preferencias y familia
-  const desVacios = OBS_DESEMPENO.filter(d=>!document.getElementById(`od_des_${d.id}`)?.value);
-  if(desVacios.length>0){ toast(`⚠️ Complete Nivel de Desempeño: ${desVacios[0].label}`,'err'); return; }
-  const difVacios = OBS_DIFICULTADES.filter(d=>!document.getElementById(`od_dif_${d.id}`)?.value);
-  if(difVacios.length>0){ toast(`⚠️ Complete Dificultades: ${difVacios[0].label}`,'err'); return; }
-  const prefCampos = ['deporte','musica','profesion','religion','arte'];
-  const prefVacios = prefCampos.filter(p=>!document.getElementById(`od_pref_${p}`)?.value);
-  if(prefVacios.length>0){ toast('⚠️ Complete todos los campos de Preferencias','err'); return; }
-  const nFam = document.getElementById('od_familias')?.children.length||0;
-  if(nFam===0){ toast('⚠️ Agregue al menos un familiar','err'); return; }
-  const famNombre = document.getElementById('od_fam_nom_0')?.value?.trim();
-  if(!famNombre){ toast('⚠️ Complete el nombre del familiar','err'); return; }
+
 
   const updated = { ...obs, periodos: { ...obs.periodos, [periodo]: { ...per, seguimiento } } };
   await fbSet('observadores', docId, updated);
