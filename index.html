@@ -3488,14 +3488,14 @@ const OBS_DESEMPENO = [
 
 const OBS_DIFICULTADES = [
   { id:'dislexia', label:'Dislexia', desc:'Alteración de la capacidad de leer por la que se confunden o se altera el orden de letras, sílabas o palabras.' },
-  { id:'discalculia', label:'Discalculia', desc:'Dificultad de aprendizaje específica en matemáticas.' },
-  { id:'tdah', label:'TDAH', desc:'Trastorno por déficit de atención e hiperactividad.' },
-  { id:'disgrafía', label:'Disgrafía', desc:'Dificultad específica en el aprendizaje de la escritura.' },
-  { id:'otra', label:'Otra', desc:'Otra dificultad de aprendizaje.' }
+  { id:'discalculia', label:'Discalculia', desc:'Trastorno que dificulta la comprensión y el manejo de los números y las operaciones matemáticas.' },
+  { id:'tdah', label:'TDAH', desc:'Trastorno caracterizado por falta de atención, hiperactividad e impulsividad que afecta la vida diaria y el rendimiento académico y social.' },
+  { id:'disgrafia', label:'Disgrafía', desc:'Trastorno que afecta la habilidad de escribir, dificultando el trazado de letras, palabras y textos de manera ordenada y legible.' },
+  { id:'otra', label:'Otra (cuál)', desc:'Otra dificultad de aprendizaje no listada anteriormente.', custom:true }
 ];
 
-const OBS_VALORES = ['Excelente','Sobresaliente','Aceptable','Básico','Bajo','No aplica'];
-const OBS_DIFICULTAD_VALORES = ['No presenta','Leve','Moderada','Severa'];
+const OBS_VALORES = ['','Excelente','Sobresaliente','Aceptable','Básico','Bajo','No aplica'];
+const OBS_DIFICULTAD_VALORES = ['','No presenta','Leve','Moderada','Severa'];
 
 const OBS_SEGUIMIENTO = [
   { aspecto:'ATENCIÓN Y MOTIVACIÓN', criterios:[
@@ -3756,7 +3756,7 @@ async function obsSubirFoto(input, docId) {
   if(!file) return;
   toast('⏳ Subiendo foto...','ok');
   try {
-    const url = await uploadToCloudinary(file);
+    const url = await uploadDoc(file);
     await fbSet('observadores', docId, { ...window._obsActual, foto: url });
     window._obsActual.foto = url;
     toast('✅ Foto actualizada','ok');
@@ -3851,12 +3851,6 @@ function obsEditarDatos(docId) {
           <option ${d.hijoMadreCabeza==='N'?'selected':''} value="N">No</option>
         </select>
       </div>
-      <div class="form-group"><label>Madre Cabeza de Familia</label>
-        <select id="od_mcf">
-          <option ${d.madreCabeza==='S'?'selected':''} value="S">Sí</option>
-          <option ${d.madreCabeza==='N'?'selected':''} value="N">No</option>
-        </select>
-      </div>
     </div>
 
     <h4 style="font-size:.85rem;font-weight:700;color:var(--purple);margin:16px 0 12px;text-transform:uppercase">Nivel de Desempeño</h4>
@@ -3878,9 +3872,12 @@ function obsEditarDatos(docId) {
       <tbody>
         ${OBS_DIFICULTADES.map(d2=>`<tr>
           <td><strong>${d2.label}</strong><br><small style="color:var(--gray)">${d2.desc}</small></td>
-          <td><select id="od_dif_${d2.id}">
-            ${OBS_DIFICULTAD_VALORES.map(v=>`<option ${(obs.dificultades?.[d2.id]||'')=== v?'selected':''}>${v}</option>`).join('')}
-          </select></td>
+          <td>
+            <select id="od_dif_${d2.id}" ${d2.custom?`onchange="document.getElementById('od_dif_otra_txt').style.display=this.value&&this.value!='No presenta'?'block':'none'"`:''}>>
+              ${OBS_DIFICULTAD_VALORES.map(v=>`<option ${(obs.dificultades?.[d2.id]||'')=== v?'selected':''}>${v}</option>`).join('')}
+            </select>
+            ${d2.custom?`<input id="od_dif_otra_txt" placeholder="Describa la dificultad..." value="${obs.dificultades?.otraDesc||''}" style="margin-top:6px;display:${obs.dificultades?.otra&&obs.dificultades.otra!='No presenta'?'block':'none'}">`:''}
+          </td>
         </tr>`).join('')}
       </tbody>
     </table></div>
@@ -3985,6 +3982,20 @@ async function obsGuardarDatos(docId) {
   OBS_DESEMPENO.forEach(d=>{ desempeno[d.id]=document.getElementById(`od_des_${d.id}`)?.value||''; });
   const dificultades = {};
   OBS_DIFICULTADES.forEach(d=>{ dificultades[d.id]=document.getElementById(`od_dif_${d.id}`)?.value||''; });
+  dificultades.otraDesc = document.getElementById('od_dif_otra_txt')?.value||'';
+
+  // CAMBIO 5: Validar desempeño, dificultades, preferencias y familia
+  const desVacios = OBS_DESEMPENO.filter(d=>!document.getElementById(`od_des_${d.id}`)?.value);
+  if(desVacios.length>0){ toast(`⚠️ Complete Nivel de Desempeño: ${desVacios[0].label}`,'err'); return; }
+  const difVacios = OBS_DIFICULTADES.filter(d=>!document.getElementById(`od_dif_${d.id}`)?.value);
+  if(difVacios.length>0){ toast(`⚠️ Complete Dificultades: ${difVacios[0].label}`,'err'); return; }
+  const prefCampos = ['deporte','musica','profesion','religion','arte'];
+  const prefVacios = prefCampos.filter(p=>!document.getElementById(`od_pref_${p}`)?.value);
+  if(prefVacios.length>0){ toast('⚠️ Complete todos los campos de Preferencias','err'); return; }
+  const nFam = document.getElementById('od_familias')?.children.length||0;
+  if(nFam===0){ toast('⚠️ Agregue al menos un familiar','err'); return; }
+  const famNombre = document.getElementById('od_fam_nom_0')?.value?.trim();
+  if(!famNombre){ toast('⚠️ Complete el nombre del familiar','err'); return; }
 
   const updated = { ...obs,
     datosBasicos: {
@@ -4069,7 +4080,7 @@ function obsAbrirPeriodo(docId, periodo) {
     <div class="form-row">
       <div class="form-group"><label>Tipo</label>
         <select id="per_tipo">
-          <option>FELICITACIÓN</option><option>RECOMENDACIÓN</option><option>LLAMADO DE ATENCIÓN</option><option>COMPROMISO</option><option>OBSERVACIÓN</option>
+          <option value="">— Tipo de anotación —</option><option>FELICITACIÓN</option><option>RECOMENDACIÓN</option><option>LLAMADO DE ATENCIÓN</option><option>OBSERVACIÓN</option>
         </select>
       </div>
     </div>
@@ -4113,7 +4124,12 @@ function obsAbrirPeriodo(docId, periodo) {
 async function obsAgregarAnotacion(docId, periodo) {
   const tipo = document.getElementById('per_tipo')?.value;
   const anotacion = document.getElementById('per_anotacion')?.value?.trim();
+  if(!tipo) { toast('⚠️ Seleccione el tipo de anotación','err'); return; }
   if(!anotacion) { toast('⚠️ Escriba la anotación','err'); return; }
+  const compEst = document.getElementById('per_comp_est')?.value?.trim();
+  const compAcu = document.getElementById('per_comp_acu')?.value?.trim();
+  const compInst = document.getElementById('per_comp_inst')?.value?.trim();
+  if(!compEst||!compAcu||!compInst){ toast('⚠️ Complete todos los compromisos (estudiante, acudiente e institución)','err'); return; }
 
   const obs = window._obsActual;
   const per = obs.periodos?.[periodo]||{ seguimiento:{}, anotaciones:[] };
@@ -4128,6 +4144,19 @@ async function obsAgregarAnotacion(docId, periodo) {
   };
 
   const anotaciones = [...(per.anotaciones||[]), nuevaAnotacion];
+  // CAMBIO 5: Validar desempeño, dificultades, preferencias y familia
+  const desVacios = OBS_DESEMPENO.filter(d=>!document.getElementById(`od_des_${d.id}`)?.value);
+  if(desVacios.length>0){ toast(`⚠️ Complete Nivel de Desempeño: ${desVacios[0].label}`,'err'); return; }
+  const difVacios = OBS_DIFICULTADES.filter(d=>!document.getElementById(`od_dif_${d.id}`)?.value);
+  if(difVacios.length>0){ toast(`⚠️ Complete Dificultades: ${difVacios[0].label}`,'err'); return; }
+  const prefCampos = ['deporte','musica','profesion','religion','arte'];
+  const prefVacios = prefCampos.filter(p=>!document.getElementById(`od_pref_${p}`)?.value);
+  if(prefVacios.length>0){ toast('⚠️ Complete todos los campos de Preferencias','err'); return; }
+  const nFam = document.getElementById('od_familias')?.children.length||0;
+  if(nFam===0){ toast('⚠️ Agregue al menos un familiar','err'); return; }
+  const famNombre = document.getElementById('od_fam_nom_0')?.value?.trim();
+  if(!famNombre){ toast('⚠️ Complete el nombre del familiar','err'); return; }
+
   const updated = { ...obs, periodos: { ...obs.periodos, [periodo]: { ...per, anotaciones } } };
   await fbSet('observadores', docId, updated);
   window._obsActual = updated;
@@ -4138,7 +4167,42 @@ async function obsAgregarAnotacion(docId, periodo) {
 async function obsGuardarPeriodo(docId, periodo) {
   const obs = window._obsActual;
   const per = obs.periodos?.[periodo]||{ seguimiento:{}, anotaciones:[] };
+
+  // CAMBIO 6: Validar que todos los criterios del seguimiento estén marcados
+  const totalCriterios = OBS_SEGUIMIENTO.reduce((s,sec)=>s+sec.criterios.length,0);
+  const marcados = Object.keys(window._segTemp||{}).length;
+  if(marcados < totalCriterios){
+    toast(`⚠️ Complete todos los criterios del seguimiento (${marcados}/${totalCriterios} completados)`,'err');
+    return;
+  }
+
+  // CAMBIO 8: Validar mínimo 2 anotaciones no repetidas
+  const anotaciones = per.anotaciones||[];
+  if(anotaciones.length < 2){
+    toast('⚠️ Debe registrar mínimo 2 anotaciones antes de guardar el periodo','err');
+    return;
+  }
+  const tipos = anotaciones.map(a=>a.tipo);
+  const tiposUnicos = new Set(tipos);
+  if(tiposUnicos.size < 2){
+    toast('⚠️ Las anotaciones deben ser de tipos diferentes (no repetidas)','err');
+    return;
+  }
+
   const seguimiento = { ...(per.seguimiento||{}), ...(window._segTemp||{}) };
+  // CAMBIO 5: Validar desempeño, dificultades, preferencias y familia
+  const desVacios = OBS_DESEMPENO.filter(d=>!document.getElementById(`od_des_${d.id}`)?.value);
+  if(desVacios.length>0){ toast(`⚠️ Complete Nivel de Desempeño: ${desVacios[0].label}`,'err'); return; }
+  const difVacios = OBS_DIFICULTADES.filter(d=>!document.getElementById(`od_dif_${d.id}`)?.value);
+  if(difVacios.length>0){ toast(`⚠️ Complete Dificultades: ${difVacios[0].label}`,'err'); return; }
+  const prefCampos = ['deporte','musica','profesion','religion','arte'];
+  const prefVacios = prefCampos.filter(p=>!document.getElementById(`od_pref_${p}`)?.value);
+  if(prefVacios.length>0){ toast('⚠️ Complete todos los campos de Preferencias','err'); return; }
+  const nFam = document.getElementById('od_familias')?.children.length||0;
+  if(nFam===0){ toast('⚠️ Agregue al menos un familiar','err'); return; }
+  const famNombre = document.getElementById('od_fam_nom_0')?.value?.trim();
+  if(!famNombre){ toast('⚠️ Complete el nombre del familiar','err'); return; }
+
   const updated = { ...obs, periodos: { ...obs.periodos, [periodo]: { ...per, seguimiento } } };
   await fbSet('observadores', docId, updated);
   window._obsActual = updated;
