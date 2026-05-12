@@ -321,20 +321,37 @@ const CLOUDINARY_PRESET = "edupermiso_upload";
 // ══════════════════════════════════════════════
 // GROUPS DATA
 // ══════════════════════════════════════════════
-const GRADOS = ['Preescolar','1°','2°','3°','4°','5°','6°','7°','8°','9°','10°','11°'];
-const GRUPOS_MANANA = ['1','2','3','4'];
-const GRUPOS_TARDE = ['1','2'];
-const GRUPOS_PRE_M = ['1','2','3','4'];
-const GRUPOS_PRE_T = ['1','2'];
+// Grupos de preescolar explícitos
+const GRUPOS_PREESCOLAR = [
+  'Prejardín-1 - J.Mañana','Prejardín-2 - J.Mañana',
+  'Jardín-1 - J.Mañana','Jardín-2 - J.Mañana',
+  'Transición-1 - J.Mañana','Transición-2 - J.Mañana',
+  'Prejardín-1 - J.Tarde','Prejardín-2 - J.Tarde',
+  'Jardín-1 - J.Tarde','Jardín-2 - J.Tarde',
+  'Transición-1 - J.Tarde','Transición-2 - J.Tarde'
+];
+
+// Configuración por grado: cuántos grupos en mañana y tarde
+// 7° y 9° tienen 3 grupos en mañana, el resto 2
+const GRADOS_CONFIG = [
+  { g:'1°',  m:2, t:2 },
+  { g:'2°',  m:2, t:2 },
+  { g:'3°',  m:2, t:2 },
+  { g:'4°',  m:2, t:2 },
+  { g:'5°',  m:2, t:2 },
+  { g:'6°',  m:2, t:2 },
+  { g:'7°',  m:3, t:2 },
+  { g:'8°',  m:2, t:2 },
+  { g:'9°',  m:3, t:2 },
+  { g:'10°', m:2, t:2 },
+  { g:'11°', m:2, t:2 },
+];
 
 function getAllGroups() {
-  const groups = [];
-  GRADOS.forEach(g => {
-    const isPreesc = g === 'Preescolar';
-    const mLetters = isPreesc ? GRUPOS_PRE_M : GRUPOS_MANANA.slice(0,3);
-    const tLetters = isPreesc ? GRUPOS_PRE_T : GRUPOS_TARDE;
-    mLetters.forEach(l => groups.push(`${g}-${l} - J.Mañana`));
-    tLetters.forEach(l => groups.push(`${g}-${l} - J.Tarde`));
+  const groups = [...GRUPOS_PREESCOLAR];
+  GRADOS_CONFIG.forEach(({g, m, t}) => {
+    for(let i=1; i<=m; i++) groups.push(`${g}-${i} - J.Mañana`);
+    for(let i=1; i<=t; i++) groups.push(`${g}-${i} - J.Tarde`);
   });
   return groups;
 }
@@ -2335,7 +2352,7 @@ async function renderCoordStudentAdmin() {
 
   <div class="card fade-up">
     <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:14px;flex-wrap:wrap;gap:8px">
-      <h3 style="font-size:1rem;font-weight:700">Lista de Estudiantes</h3>
+      <h3 style="font-size:1rem;font-weight:700">Lista de Estudiantes <span id="stuListCount" style="font-size:.85rem;color:var(--purple);font-weight:400"></span></h3>
       <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap">
         <button class="btn btn-purple btn-sm" onclick="abrirBuscadorEstudiante()">🔍 Buscar Estudiante</button>
         <div class="form-group" style="min-width:200px;margin:0">
