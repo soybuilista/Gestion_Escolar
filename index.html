@@ -2336,11 +2336,14 @@ async function renderCoordStudentAdmin() {
   <div class="card fade-up">
     <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:14px;flex-wrap:wrap;gap:8px">
       <h3 style="font-size:1rem;font-weight:700">Lista de Estudiantes</h3>
-      <div class="form-group" style="min-width:200px;margin:0">
-        <select id="filterGroup" onchange="filterStudentList()" style="font-size:.82rem">
+      <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap">
+        <button class="btn btn-purple btn-sm" onclick="abrirBuscadorEstudiante()">🔍 Buscar Estudiante</button>
+        <div class="form-group" style="min-width:200px;margin:0">
+          <select id="filterGroup" onchange="filterStudentList()" style="font-size:.82rem">
           <option value="">Todos los grupos</option>
           ${ALL_GROUPS.map(g=>`<option>${g}</option>`).join('')}
-        </select>
+          </select>
+        </div>
       </div>
     </div>
     <div id="studentListCoord">
@@ -4536,6 +4539,101 @@ function obsGetAnotacionValue(selId, txtId, key) {
   const data = OBS_ANOTACIONES[tipo]||{};
   const opts = data[key]||[];
   return opts[parseInt(val)]||'';
+}
+
+
+// ══════════════════════════════════════════════
+// BUSCADOR GLOBAL DE ESTUDIANTES
+// ══════════════════════════════════════════════
+async function abrirBuscadorEstudiante() {
+  // Show modal
+  let modal = document.getElementById('buscarEstModal');
+  if(!modal) {
+    modal = document.createElement('div');
+    modal.id = 'buscarEstModal';
+    modal.style.cssText = 'position:fixed;inset:0;background:#0008;z-index:9999;display:flex;align-items:center;justify-content:center;padding:16px';
+    document.body.appendChild(modal);
+  }
+  modal.innerHTML = `
+  <div style="background:var(--card);border-radius:16px;padding:24px;max-width:560px;width:100%;max-height:80vh;overflow-y:auto;box-shadow:0 8px 40px #0004">
+    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:16px">
+      <h3 style="font-family:'Playfair Display',serif;font-size:1.1rem">🔍 Buscar Estudiante</h3>
+      <button onclick="cerrarBuscadorEstudiante()" style="background:none;border:none;font-size:1.3rem;cursor:pointer;color:var(--gray)">✕</button>
+    </div>
+    <div style="display:flex;gap:10px;margin-bottom:16px;flex-wrap:wrap">
+      <div class="form-group" style="flex:1;min-width:160px;margin:0">
+        <input id="busq_texto" placeholder="Apellidos o nombre..." oninput="ejecutarBusqueda()" autofocus
+          style="width:100%">
+      </div>
+      <div class="form-group" style="flex:1;min-width:140px;margin:0">
+        <input id="busq_doc" placeholder="Número de documento..." oninput="ejecutarBusqueda()"
+          style="width:100%">
+      </div>
+    </div>
+    <div id="busq_resultados" style="min-height:60px">
+      <div style="text-align:center;color:var(--gray);font-size:.9rem;padding:20px">
+        Escriba el nombre, apellido o documento del estudiante
+      </div>
+    </div>
+  </div>`;
+  modal.style.display='flex';
+  // Load students once
+  if(!window._allStudentsCache) {
+    window._allStudentsCache = await fbGet('estudiantes');
+  }
+  document.getElementById('busq_texto')?.focus();
+}
+
+function ejecutarBusqueda() {
+  const texto = (document.getElementById('busq_texto')?.value||'').trim().toLowerCase();
+  const doc   = (document.getElementById('busq_doc')?.value||'').trim().toLowerCase();
+  const res   = document.getElementById('busq_resultados');
+  if(!texto && !doc) {
+    res.innerHTML='<div style="text-align:center;color:var(--gray);font-size:.9rem;padding:20px">Escriba el nombre, apellido o documento del estudiante</div>';
+    return;
+  }
+  const students = window._allStudentsCache||[];
+  const found = students.filter(s=>{
+    const nombre = (s.nombre||'').toLowerCase();
+    const documento = (s.documento||'').toLowerCase();
+    const matchTexto = !texto || nombre.includes(texto);
+    const matchDoc   = !doc   || documento.includes(doc);
+    return matchTexto && matchDoc;
+  }).sort((a,b)=>a.nombre.localeCompare(b.nombre));
+
+  if(!found.length) {
+    res.innerHTML='<div style="text-align:center;color:var(--red);font-size:.9rem;padding:20px">⚠️ No se encontraron estudiantes con esos datos</div>';
+    return;
+  }
+
+  res.innerHTML = `
+  <p style="font-size:.8rem;color:var(--gray);margin-bottom:8px">${found.length} resultado${found.length!==1?'s':''} encontrado${found.length!==1?'s':''} — haga clic para editar</p>
+  <div style="display:flex;flex-direction:column;gap:6px">
+    ${found.map(s=>`
+    <div onclick="seleccionarEstudiante('${s.id}')"
+      style="padding:10px 14px;border-radius:10px;border:1px solid var(--border);cursor:pointer;transition:all .15s;display:flex;align-items:center;gap:12px"
+      onmouseover="this.style.background='var(--purple-light)';this.style.borderColor='var(--purple)'"
+      onmouseout="this.style.background='';this.style.borderColor='var(--border)'">
+      <div style="width:38px;height:38px;border-radius:50%;background:var(--purple);color:#fff;display:flex;align-items:center;justify-content:center;font-weight:700;font-size:.85rem;flex-shrink:0">${initials(s.nombre)}</div>
+      <div style="flex:1;min-width:0">
+        <div style="font-weight:700;font-size:.9rem">${s.nombre}</div>
+        <div style="font-size:.78rem;color:var(--gray)">${s.grupo} · Doc: ${s.documento||'—'}</div>
+      </div>
+      <div style="font-size:.75rem;color:var(--purple);font-weight:600">✏️ Editar</div>
+    </div>`).join('')}
+  </div>`;
+}
+
+function seleccionarEstudiante(id) {
+  cerrarBuscadorEstudiante();
+  editStudentCoordById(id);
+}
+
+function cerrarBuscadorEstudiante() {
+  const modal = document.getElementById('buscarEstModal');
+  if(modal) modal.style.display='none';
+  // Clear cache so next open is fresh
+  window._allStudentsCache = null;
 }
 
 // ══════════════════════════════════════════════
