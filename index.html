@@ -948,6 +948,11 @@ function renderTeacherMisReportes() {
       <h3>Permisos de Mi Grupo</h3>
       <p>Solicitudes de permiso de mis estudiantes</p>
     </div>
+    <div class="menu-item" onclick="renderObservadorMenu('teacher')">
+      <div class="mi">📒</div>
+      <h3>Observador del Estudiante</h3>
+      <p>Ficha de seguimiento de mi grupo asignado</p>
+    </div>
   </div>`;
 }
 
@@ -3580,19 +3585,28 @@ async function renderObservadorMenu(origin) {
 
   const grupoNames = [...new Set(stuList.map(s=>s.grupo))].sort();
 
-  $app.innerHTML = `
-  <button class="btn btn-outline btn-sm" onclick="${origin==='teacher'?'renderTeacherMisReportes()':origin==='secretary'?'renderSecretEstudiantes()':'renderAdminEstudiantes()'}" style="margin-bottom:16px">← Volver</button>
-  <h2 class="sec-title">📒 Observador del Estudiante</h2>
-  <p class="sec-sub">Ficha de seguimiento integral · Año ${año}</p>
-  <div class="card fade-up" style="margin-bottom:16px">
-    <div style="display:flex;gap:12px;flex-wrap:wrap;align-items:flex-end">
-      <div class="form-group" style="min-width:180px">
+  // If teacher with assigned group, pre-select and lock the group
+  const grupoSelector = origin==='teacher' && myGroup
+    ? `<div class="form-group" style="min-width:180px">
+        <label>Grupo</label>
+        <input value="${myGroup.nombre}" disabled style="background:var(--bg);color:var(--purple);font-weight:700">
+        <input type="hidden" id="obsGrupo" value="${myGroup.nombre}">
+       </div>`
+    : `<div class="form-group" style="min-width:180px">
         <label>Grupo</label>
         <select id="obsGrupo" onchange="obsCargarEstudiantes()">
           <option value="">— Seleccione grupo —</option>
           ${grupoNames.map(g=>`<option>${g}</option>`).join('')}
         </select>
-      </div>
+       </div>`;
+
+  $app.innerHTML = `
+  <button class="btn btn-outline btn-sm" onclick="${origin==='teacher'?'renderTeacherMisReportes()':origin==='secretary'?'renderSecretEstudiantes()':'renderAdminEstudiantes()'}" style="margin-bottom:16px">← Volver</button>
+  <h2 class="sec-title">📒 Observador del Estudiante</h2>
+  <p class="sec-sub">Ficha de seguimiento integral · Año ${año}${origin==='teacher'&&myGroup?' · '+myGroup.nombre:''}</p>
+  <div class="card fade-up" style="margin-bottom:16px">
+    <div style="display:flex;gap:12px;flex-wrap:wrap;align-items:flex-end">
+      ${grupoSelector}
       <div class="form-group" style="min-width:240px">
         <label>Estudiante</label>
         <select id="obsEstudiante">
@@ -3611,6 +3625,11 @@ async function renderObservadorMenu(origin) {
   <div id="obsResult"></div>`;
 
   window._obsStudents = stuList;
+
+  // If teacher with assigned group, auto-load students
+  if(origin==='teacher' && myGroup) {
+    obsCargarEstudiantes();
+  }
 }
 
 function obsCargarEstudiantes() {
