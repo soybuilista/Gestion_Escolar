@@ -1094,58 +1094,81 @@ async function saveAttendance() {
 // TEACHER — MY GROUP ADMIN
 // ══════════════════════════════════════════════
 async function renderMyGroupAdmin() {
-  $app.innerHTML=`<div class="loading"><div class="spin-big"></div><p>Cargando...</p></div>`;
+  $app.innerHTML=`<div class="loading"><div class="spin-big"></div><p>Cargando estudiantes...</p></div>`;
   const groups = await fbGet('grupos');
   const myGroup = groups.find(g=>g.directorCedula===S.user?.cedula);
+
+  if(!myGroup) {
+    $app.innerHTML = `
+    <button class="btn btn-outline btn-sm" onclick="renderTeacherMenu()" style="margin-bottom:16px">← Volver</button>
+    <h2 class="sec-title">👥 Administrar Mi Grupo</h2>
+    <div class="empty"><div class="ei">👥</div><p>No tiene un grupo asignado como director/a.<br><small>Contacte al coordinador.</small></p></div>`;
+    return;
+  }
+
+  const groupName = myGroup.nombre;
+  const students = await fbGet('estudiantes');
+  const gs = students.filter(s=>s.grupo===groupName).sort((a,b)=>a.nombre.localeCompare(b.nombre));
 
   $app.innerHTML = `
   <button class="btn btn-outline btn-sm" onclick="renderTeacherMenu()" style="margin-bottom:16px">← Volver</button>
   <h2 class="sec-title">👥 Administrar Mi Grupo</h2>
-  <p class="sec-sub">${myGroup ? `Director/a de: <strong>${myGroup.nombre}</strong>` : 'No tiene un grupo asignado como director/a. Contacte al coordinador.'}</p>
-  ${myGroup ? await renderGroupStudents(myGroup.nombre) : ''}`;
-}
+  <p class="sec-sub">Director/a de: <strong>${groupName}</strong></p>
 
-async function renderGroupStudents(groupName) {
-  const students = await fbGet('estudiantes');
-  const gs = students.filter(s=>s.grupo===groupName).sort((a,b)=>a.nombre.localeCompare(b.nombre));
-  return `
   <div class="card fade-up">
-    <div class="card-header">
-      <div class="icon">👥</div>
-      <div><h2>${groupName}</h2><p>${gs.length} estudiantes registrados</p></div>
+    <div style="margin-bottom:14px">
+      <h3 style="font-size:1rem;font-weight:700">➕ Registrar Nuevo Estudiante</h3>
     </div>
-    <div style="display:flex;gap:8px;margin-bottom:14px;flex-wrap:wrap">
-      <button class="btn btn-gold btn-sm" onclick="renderBulkStudentImport('${groupName}')">📥 Carga masiva desde Excel</button>
+    <div class="form-grid">
+      <div class="form-group full"><label>Nombre Completo</label><input type="text" id="tns_name" placeholder="Nombres y Apellidos"></div>
+      <div class="form-group"><label>Número de Documento</label><input type="text" id="tns_doc" placeholder="TI, RC, CE..."></div>
+      <div class="form-group"><label>Fecha de Nacimiento</label><input type="date" id="tns_dob"></div>
+      <div class="form-group"><label>Nombre del Acudiente</label><input type="text" id="tns_guardian" placeholder="Nombre completo"></div>
+      <div class="form-group"><label>Teléfono del Acudiente</label><div class="phone-wrap"><span class="phone-prefix">+57 —</span><input type="tel" id="tns_phone" placeholder="3001234567" maxlength="10"></div></div>
     </div>
-    <div style="display:flex;gap:8px;margin-bottom:16px">
-      <input type="text" id="newStudentName" placeholder="Nombre completo del estudiante" style="flex:1">
-      <button class="btn btn-purple btn-sm" onclick="addStudent('${groupName}')">+ Agregar</button>
+    <div class="actions"><button class="btn btn-purple" onclick="addStudentTeacher('${groupName}')">+ Registrar Estudiante</button></div>
+  </div>
+
+  <div class="card fade-up">
+    <div style="margin-bottom:14px">
+      <h3 style="font-size:1rem;font-weight:700">Lista de Estudiantes <span style="font-size:.85rem;color:var(--purple);font-weight:400">(${gs.length} estudiante${gs.length!==1?'s':''})</span></h3>
     </div>
-    <div id="studentList">
+    <div id="myGroupStudentList">
     ${gs.length===0
-      ? `<div class="empty"><div class="ei">👤</div><p>No hay estudiantes. Agréguelos arriba.</p></div>`
+      ? `<div class="empty"><div class="ei">👤</div><p>No hay estudiantes registrados.<br><small>Agregue el primero arriba.</small></p></div>`
       : gs.map(s=>`
-        <div class="teacher-item" id="stu_${s.id}">
-          <div class="teacher-avatar" style="background:linear-gradient(135deg,var(--purple),var(--purple-mid))">${initials(s.nombre)}</div>
-          <div style="flex:1">
-            <div style="font-weight:600;font-size:.9rem">${s.nombre}</div>
-            <div style="font-size:.75rem;color:var(--gray)">Doc: ${s.documento||'—'} · Acudiente: ${s.nombreAcudiente||'—'}</div>
-          </div>
-          <button class="btn btn-outline btn-xs" onclick="editStudentTeacherById('${s.id}')">✏️ Editar</button>
-        </div>`).join('')}
+      <div class="teacher-item" id="gsrow_${s.id}">
+        <div class="teacher-avatar" style="background:linear-gradient(135deg,var(--purple),var(--purple-mid))">${initials(s.nombre)}</div>
+        <div style="flex:1">
+          <div style="font-weight:600;font-size:.9rem">${s.nombre}</div>
+          <div style="font-size:.76rem;color:var(--gray)">Doc: ${s.documento||'—'} · Nac: ${fmtDate(s.fechaNacimiento||'')} · Acudiente: ${s.nombreAcudiente||'—'}</div>
+        </div>
+        <div style="display:flex;gap:6px">
+          <button class="btn btn-outline btn-xs" onclick="editStudentTeacherById('${s.id}')">✏️</button>
+          <button class="btn btn-red btn-xs" onclick="removeStudentTeacher('${s.id}')">🗑️</button>
+        </div>
+      </div>`).join('')}
     </div>
   </div>`;
 }
 
-async function addStudent(group) {
-  const name = document.getElementById('newStudentName').value.trim();
-  if(!name) { toast('⚠️ Ingrese el nombre','err'); return; }
-  await fbAdd('estudiantes', { nombre:name, grupo:group, addedBy:S.user?.cedula });
-  toast('✅ Estudiante agregado','ok');
+async function addStudentTeacher(group) {
+  const name = document.getElementById('tns_name').value.trim();
+  if(!name) { toast('⚠️ El nombre es obligatorio','err'); return; }
+  await fbAdd('estudiantes', {
+    nombre: name,
+    grupo: group,
+    documento: document.getElementById('tns_doc').value.trim(),
+    fechaNacimiento: document.getElementById('tns_dob').value,
+    nombreAcudiente: document.getElementById('tns_guardian').value.trim(),
+    telefonoAcudiente: getPhone('tns_phone'),
+    addedBy: S.user?.cedula
+  });
+  toast('✅ Estudiante registrado','ok');
   renderMyGroupAdmin();
 }
 
-async function removeStudent(id, group) {
+async function removeStudentTeacher(id) {
   if(!confirm('¿Eliminar este estudiante del grupo?')) return;
   await fbDelete('estudiantes', id);
   toast('Estudiante eliminado','ok');
@@ -2529,13 +2552,13 @@ function editStudentTeacher(id, nombre, grupo, documento, fechaNacimiento, nombr
     <div class="form-group"><label>Número de Documento</label><input type="text" id="est_doc" value="${documento}"></div>
     <div class="form-group"><label>Fecha de Nacimiento</label><input type="date" id="est_dob" value="${fechaNacimiento}"></div>
     <div class="form-group"><label>Nombre del Acudiente</label><input type="text" id="est_guardian" value="${nombreAcudiente}"></div>
-    <div class="form-group"><label>Teléfono Acudiente</label><div class="phone-wrap"><span class="phone-prefix">+57 —</span><input type="tel" id="est_phone" placeholder="3001234567" maxlength="10"></div></div>
+    <div class="form-group"><label>Teléfono del Acudiente</label><div class="phone-wrap"><span class="phone-prefix">+57 —</span><input type="tel" id="est_phone" placeholder="3001234567" maxlength="10"></div></div>
   </div>
-  <p style="font-size:.78rem;color:var(--gray);margin-top:12px">ℹ️ Solo el coordinador puede cambiar el grupo o eliminar estudiantes.</p>
-  <div class="actions" style="margin-top:12px">
+  <div class="actions" style="margin-top:16px">
     <button class="btn btn-purple" onclick="saveEditStudentTeacher('${id}','${grupo}')">💾 Guardar Cambios</button>
     <button class="btn btn-outline" onclick="closeModal()">Cancelar</button>
   </div>`);
+  setTimeout(()=>setPhoneInput('est_phone', telefono), 50);
 }
 
 async function saveEditStudentTeacher(id, grupo) {
