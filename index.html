@@ -999,38 +999,50 @@ async function renderUniformSelect(origin) {
 
   const backFn = origin==='coordinator' ? 'renderAdminEstudiantes()' : 'renderTeacherMiClase()';
 
-  // For teacher: only their assigned group
-  let groupList = ALL_GROUPS;
-  let teacherGroupName = null;
+  // For teacher: find ALL groups they direct
+  let teacherGroups = [];
   if(origin==='teacher') {
     const groups = await fbGet('grupos');
-    const myGroup = groups.find(g=>g.directorCedula===S.user?.cedula);
-    if(!myGroup) {
+    teacherGroups = groups.filter(g=>g.directorCedula===S.user?.cedula).map(g=>g.nombre);
+    if(!teacherGroups.length) {
       $app.innerHTML = `
       <button class="btn btn-outline btn-sm" onclick="${backFn}" style="margin-bottom:16px">← Volver</button>
       <h2 class="sec-title">👔 Revista de Uniforme</h2>
       <div class="empty"><div class="ei">👥</div><p>No tiene un grupo asignado como director/a.<br><small>Contacte al coordinador.</small></p></div>`;
       return;
     }
-    teacherGroupName = myGroup.nombre;
-    groupList = [teacherGroupName];
   }
+
+  const teacherLabel = teacherGroups.length===1
+    ? `<p style="background:var(--purple-light);border-radius:10px;padding:10px 14px;font-size:.85rem;color:var(--purple-dark);margin-bottom:16px">📌 Grupo asignado: <strong>${teacherGroups[0]}</strong></p>`
+    : '';
+
+  const groupSelector = origin==='coordinator'
+    ? `<div class="form-group">
+        <label>Grupo</label>
+        <select id="unifGroup">
+          <option value="">Seleccionar grupo...</option>
+          ${ALL_GROUPS.map(g=>`<option>${g}</option>`).join('')}
+        </select>
+      </div>`
+    : teacherGroups.length===1
+      ? `<input type="hidden" id="unifGroup" value="${teacherGroups[0]}">`
+      : `<div class="form-group">
+          <label>Grupo</label>
+          <select id="unifGroup">
+            <option value="">Seleccionar grupo...</option>
+            ${teacherGroups.map(g=>`<option>${g}</option>`).join('')}
+          </select>
+        </div>`;
 
   $app.innerHTML = `
   <button class="btn btn-outline btn-sm" onclick="${backFn}" style="margin-bottom:16px">← Volver</button>
   <h2 class="sec-title">👔 Revista de Uniforme</h2>
   <p class="sec-sub">Verificación periódica del uso del uniforme completo</p>
   <div class="card fade-up">
-    ${origin==='teacher' ? `<p style="background:var(--purple-light);border-radius:10px;padding:10px 14px;font-size:.85rem;color:var(--purple-dark);margin-bottom:16px">📌 Grupo asignado: <strong>${teacherGroupName}</strong></p>` : ''}
-    <div class="form-grid" style="grid-template-columns:${origin==='coordinator'?'1fr 1fr':'1fr'};max-width:500px">
-      ${origin==='coordinator' ? `
-      <div class="form-group">
-        <label>Grupo</label>
-        <select id="unifGroup">
-          <option value="">Seleccionar grupo...</option>
-          ${ALL_GROUPS.map(g=>`<option>${g}</option>`).join('')}
-        </select>
-      </div>` : `<input type="hidden" id="unifGroup" value="${teacherGroupName}">`}
+    ${teacherLabel}
+    <div class="form-grid" style="grid-template-columns:${(origin==='coordinator'||teacherGroups.length>1)?'1fr 1fr':'1fr'};max-width:500px">
+      ${groupSelector}
       <div class="form-group">
         <label>Fecha</label>
         <input type="date" id="unifDate" value="${new Date().toISOString().split('T')[0]}">
@@ -1163,15 +1175,15 @@ async function renderUniformReports(origin) {
   const backFn = origin==='coordinator' ? 'renderAdminEstudiantesReportes()' : 'renderTeacherMisReportes()';
   if(origin==='teacher') {
     const groups = await fbGet('grupos');
-    const myGroup = groups.find(g=>g.directorCedula===S.user?.cedula);
-    if(!myGroup) {
+    const myGroups = groups.filter(g=>g.directorCedula===S.user?.cedula).map(g=>g.nombre);
+    if(!myGroups.length) {
       $app.innerHTML=`
       <button class="btn btn-outline btn-sm" onclick="${backFn}" style="margin-bottom:16px">← Volver</button>
       <h2 class="sec-title">👔 Reportes de Uniforme</h2>
       <div class="empty"><div class="ei">👥</div><p>No tiene un grupo asignado como director/a.</p></div>`;
       return;
     }
-    window._unifRepTeacherGroup = myGroup.nombre;
+    window._unifRepTeacherGroups = myGroups;
   }
   $app.innerHTML=`
   <button class="btn btn-outline btn-sm" onclick="${backFn}" style="margin-bottom:16px">← Volver</button>
@@ -1235,7 +1247,16 @@ async function renderUnifRepDia(origin) {
           <option value="">Todos los grupos</option>
           ${ALL_GROUPS.map(g=>`<option>${g}</option>`).join('')}
         </select>
-      </div>`:`<input type="hidden" id="urdGrupo" value="${window._unifRepTeacherGroup||''}">`}
+      </div>`
+      : (window._unifRepTeacherGroups||[]).length>1
+        ? `<div class="form-group">
+            <label>Grupo</label>
+            <select id="urdGrupo" onchange="filterUnifRepDiaDates()">
+              <option value="">Todos mis grupos</option>
+              ${(window._unifRepTeacherGroups||[]).map(g=>`<option>${g}</option>`).join('')}
+            </select>
+          </div>`
+        : `<input type="hidden" id="urdGrupo" value="${(window._unifRepTeacherGroups||[''])[0]}">`}
       <div class="form-group">
         <label>Mes</label>
         <input type="month" id="urdMes" value="${curMonth}" onchange="filterUnifRepDiaDates()">
@@ -1260,7 +1281,11 @@ function filterUnifRepDiaDates() {
   if(!mes) return;
   let recs = (window._unifRepDiaAll||[]).filter(r=>r.fecha&&r.fecha.startsWith(mes));
   if(jornada) recs = recs.filter(r=>r.grupo&&(jornada==='Tarde'?r.grupo.includes('J.Tarde'):!r.grupo.includes('J.Tarde')));
-  if(grupo)   recs = recs.filter(r=>r.grupo===grupo);
+  if(grupo) {
+    recs = recs.filter(r=>r.grupo===grupo);
+  } else if(window._unifRepTeacherGroups?.length) {
+    recs = recs.filter(r=>window._unifRepTeacherGroups.includes(r.grupo));
+  }
   const dates = [...new Set(recs.map(r=>r.fecha))].sort().reverse();
   const sel = document.getElementById('urdFecha');
   if(!sel) return;
@@ -1275,9 +1300,14 @@ function showUnifRepDia(origin) {
   const jornada = document.getElementById('urdJornada')?.value||'';
   if(!fecha) { toast('⚠️ Seleccione una fecha','err'); return; }
   let recs = (window._unifRepDiaAll||[]).filter(r=>r.fecha===fecha);
-  if(grupo)        recs = recs.filter(r=>r.grupo===grupo);
-  else if(jornada) recs = recs.filter(r=>r.grupo&&(jornada==='Tarde'?r.grupo.includes('J.Tarde'):!r.grupo.includes('J.Tarde')));
-  else if(origin==='teacher') recs = recs.filter(r=>r.grupo===window._unifRepTeacherGroup);
+  if(grupo) {
+    recs = recs.filter(r=>r.grupo===grupo);
+  } else if(jornada) {
+    recs = recs.filter(r=>r.grupo&&(jornada==='Tarde'?r.grupo.includes('J.Tarde'):!r.grupo.includes('J.Tarde')));
+  } else if(origin==='teacher') {
+    const tg = window._unifRepTeacherGroups||[];
+    recs = recs.filter(r=>tg.includes(r.grupo));
+  }
   recs.sort((a,b)=>a.grupo.localeCompare(b.grupo));
   const stuMap   = window._unifRepStuMap||{};
   const totalSin = recs.reduce((s,r)=>s+(r.sinUniforme?.length||0),0);
@@ -1321,22 +1351,33 @@ async function renderUnifRepGrupo(origin) {
   window._unifRepGrupoAll = allRec;
   window._unifRepStuMap   = stuMap;
   const curMonth = new Date().toISOString().slice(0,7);
-  const fixedGrupo = origin==='teacher' ? (window._unifRepTeacherGroup||'') : '';
+  const tGroups = origin==='teacher' ? (window._unifRepTeacherGroups||[]) : [];
+
+  const groupCtrl = origin==='coordinator'
+    ? `<div class="form-group">
+        <label>Grupo</label>
+        <select id="urgGrupo">
+          <option value="">Seleccionar grupo...</option>
+          ${ALL_GROUPS.map(g=>`<option>${g}</option>`).join('')}
+        </select>
+      </div>`
+    : tGroups.length===1
+      ? `<input type="hidden" id="urgGrupo" value="${tGroups[0]}">`
+      : `<div class="form-group">
+          <label>Grupo</label>
+          <select id="urgGrupo">
+            <option value="">Seleccionar grupo...</option>
+            ${tGroups.map(g=>`<option>${g}</option>`).join('')}
+          </select>
+        </div>`;
 
   $app.innerHTML=`
   <button class="btn btn-outline btn-sm" onclick="renderUniformReports('${origin}')" style="margin-bottom:16px">← Volver</button>
   <h2 class="sec-title">👥 Reporte por Grupo y Mes</h2>
   <p class="sec-sub">Historial mensual de revista de uniforme por grupo</p>
   <div class="card fade-up">
-    <div class="form-grid" style="grid-template-columns:${origin==='coordinator'?'1fr 1fr':'1fr'};max-width:500px">
-      ${origin==='coordinator'?`
-      <div class="form-group">
-        <label>Grupo</label>
-        <select id="urgGrupo">
-          <option value="">Seleccionar grupo...</option>
-          ${ALL_GROUPS.map(g=>`<option>${g}</option>`).join('')}
-        </select>
-      </div>`:`<input type="hidden" id="urgGrupo" value="${fixedGrupo}">`}
+    <div class="form-grid" style="grid-template-columns:${(origin==='coordinator'||tGroups.length>1)?'1fr 1fr':'1fr'};max-width:500px">
+      ${groupCtrl}
       <div class="form-group">
         <label>Mes</label>
         <input type="month" id="urgMes" value="${curMonth}">
@@ -1347,7 +1388,7 @@ async function renderUnifRepGrupo(origin) {
     </div>
   </div>
   <div id="unifRepGrupoResult"></div>`;
-  if(origin==='teacher') showUnifRepGrupo(origin);
+  if(origin==='teacher' && tGroups.length===1) showUnifRepGrupo(origin);
 }
 
 function showUnifRepGrupo(origin) {
