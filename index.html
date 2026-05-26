@@ -50,6 +50,7 @@
   --blue-light: #e8f6fc;
   --gold: #d4a017;
   --gold-light: #fff3cc;
+  --gold-dark: #7a5a00;
   --white: #ffffff;
   --cream: #faf8ff;
   --green: #1a936f;
@@ -320,44 +321,125 @@ const CLOUDINARY_CLOUD = "df0bnpdnp";
 const CLOUDINARY_PRESET = "edupermiso_upload";
 
 // ══════════════════════════════════════════════
+// SEDES
+// ══════════════════════════════════════════════
+let SEDES = [
+  { id: 'ABC', nombre: 'Sede Alfonso Builes Correa' },
+  { id: 'JBE', nombre: 'Sede Jesús de la Buena Esperanza' },
+];
+
+// ══════════════════════════════════════════════
+// MATERIAS
+// ══════════════════════════════════════════════
+const MATERIAS_PREESCOLAR = [
+  'Dimensión Comunicativa','Dimensión Cognitiva','Dimensión Corporal',
+  'Dimensión Estética','Dimensión Ética y Valores','Dimensión Espiritual',
+];
+const MATERIAS_PRIMARIA = [
+  'Matemáticas','Español y Literatura','Ciencias Naturales','Ciencias Sociales',
+  'Educación Física','Artística','Ética y Valores','Religión','Tecnología e Informática','Inglés',
+];
+const MATERIAS_SECUNDARIA_MEDIA = [
+  'Matemáticas','Español y Literatura','Inglés','Ciencias Naturales','Física','Química',
+  'Ciencias Sociales','Filosofía','Educación Física','Artística','Ética y Valores',
+  'Religión','Tecnología e Informática','Economía y Política','Emprendimiento',
+];
+const TODAS_MATERIAS = [...new Set([
+  ...MATERIAS_PREESCOLAR,...MATERIAS_PRIMARIA,...MATERIAS_SECUNDARIA_MEDIA
+])].sort();
+
+// ══════════════════════════════════════════════
 // GROUPS DATA
 // ══════════════════════════════════════════════
-// Grupos de preescolar explícitos
 const GRUPOS_PREESCOLAR = [
   'Prejardín-1 - J.Mañana','Prejardín-2 - J.Mañana',
   'Jardín-1 - J.Mañana','Jardín-2 - J.Mañana',
   'Transición-1 - J.Mañana','Transición-2 - J.Mañana',
-  'Prejardín-1 - J.Tarde','Prejardín-2 - J.Tarde',
-  'Jardín-1 - J.Tarde','Jardín-2 - J.Tarde',
-  'Transición-1 - J.Tarde','Transición-2 - J.Tarde'
+  'Prejardín-3 - J.Tarde','Prejardín-4 - J.Tarde',
+  'Jardín-3 - J.Tarde','Jardín-4 - J.Tarde',
+  'Transición-3 - J.Tarde','Transición-4 - J.Tarde'
 ];
 
-// Configuración por grado: cuántos grupos en mañana y tarde
-// 7° y 9° tienen 3 grupos en mañana, el resto 2
-const GRADOS_CONFIG = [
-  { g:'1°',  m:2, t:2 },
-  { g:'2°',  m:2, t:2 },
-  { g:'3°',  m:2, t:2 },
-  { g:'4°',  m:2, t:2 },
-  { g:'5°',  m:2, t:2 },
-  { g:'6°',  m:2, t:2 },
-  { g:'7°',  m:3, t:2 },
-  { g:'8°',  m:2, t:2 },
-  { g:'9°',  m:3, t:2 },
-  { g:'10°', m:2, t:2 },
-  { g:'11°', m:2, t:2 },
+const GRADOS_CONFIG_ABC = [
+  { g:'1°',  m:2, t:2 }, { g:'2°',  m:2, t:2 }, { g:'3°',  m:2, t:2 },
+  { g:'4°',  m:2, t:2 }, { g:'5°',  m:2, t:2 }, { g:'6°',  m:2, t:2 },
+  { g:'7°',  m:3, t:2 }, { g:'8°',  m:2, t:2 }, { g:'9°',  m:3, t:2 },
+  { g:'10°', m:2, t:2 }, { g:'11°', m:2, t:2 },
 ];
 
-function getAllGroups() {
-  const groups = [...GRUPOS_PREESCOLAR];
-  GRADOS_CONFIG.forEach(({g, m, t}) => {
-    for(let i=1; i<=m; i++) groups.push(`${g}-${i} - J.Mañana`);
-    for(let i=1; i<=t; i++) groups.push(`${g}-${i} - J.Tarde`);
+// Sede JBE: solo preescolar y primaria (1°–5°)
+const GRADOS_CONFIG_JBE = [
+  { g:'1°', m:1, t:1 }, { g:'2°', m:1, t:1 }, { g:'3°', m:1, t:1 },
+  { g:'4°', m:1, t:1 }, { g:'5°', m:1, t:1 },
+];
+
+function buildGroups(preescolar, gradosConfig, sedeSuffix) {
+  const groups = preescolar.map(g => g + (sedeSuffix ? ` [${sedeSuffix}]` : ''));
+  gradosConfig.forEach(({g, m, t}) => {
+    for(let i=1; i<=m; i++)       groups.push(`${g}-${i} - J.Mañana` + (sedeSuffix ? ` [${sedeSuffix}]` : ''));
+    for(let i=m+1; i<=m+t; i++)   groups.push(`${g}-${i} - J.Tarde`  + (sedeSuffix ? ` [${sedeSuffix}]` : ''));
   });
   return groups;
 }
 
-const ALL_GROUPS = getAllGroups();
+// Mapa de migración: nombres viejos → nuevos para grupos de tarde sede ABC
+function buildMigrationMap() {
+  const map = {};
+  // Preescolar: tarde era -1/-2, ahora es -3/-4
+  ['Prejardín','Jardín','Transición'].forEach(nivel => {
+    map[`${nivel}-1 - J.Tarde`] = `${nivel}-3 - J.Tarde`;
+    map[`${nivel}-2 - J.Tarde`] = `${nivel}-4 - J.Tarde`;
+  });
+  // Grados primaria/secundaria/media
+  GRADOS_CONFIG_ABC.forEach(({g, m, t}) => {
+    for(let i=1; i<=t; i++) {
+      map[`${g}-${i} - J.Tarde`] = `${g}-${m+i} - J.Tarde`;
+    }
+  });
+  return map;
+}
+
+// Sede ABC no lleva sufijo (compatibilidad con datos existentes)
+const GROUPS_ABC = buildGroups(GRUPOS_PREESCOLAR, GRADOS_CONFIG_ABC, '');
+// Sede JBE lleva sufijo [JBE]
+const GROUPS_JBE = buildGroups(GRUPOS_PREESCOLAR.slice(0,6), GRADOS_CONFIG_JBE, 'JBE');
+
+// Registro mutable de grupos por sede (se extiende al cargar sedes extra)
+const _GROUPS_REGISTRY = { 'ABC': GROUPS_ABC, 'JBE': GROUPS_JBE };
+
+function getGroupsBySede(sedeId) {
+  return _GROUPS_REGISTRY[sedeId] || GROUPS_ABC;
+}
+
+// ALL_GROUPS mutable — se extiende cuando se cargan sedes extra de Firestore
+let ALL_GROUPS = [...GROUPS_ABC, ...GROUPS_JBE];
+
+// ── Helper reutilizable: botones de selección de sede ──
+// onchangeFn: nombre de función global a llamar al cambiar (ej: 'renderCoordStudentAdmin')
+// currentId: sede actualmente seleccionada (default S.currentSede)
+function selectorSede(currentId, onchangeFn) {
+  const active = currentId || S.currentSede || 'ABC';
+  return `<div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center">
+    <span style="font-size:.8rem;font-weight:600;color:var(--gray)">🏫 Sede:</span>
+    ${SEDES.map(s=>`<button class="btn ${s.id===active?'btn-purple':'btn-outline'} btn-sm"
+      onclick="S.currentSede='${s.id}';${onchangeFn}">${s.nombre.replace('Sede ','')}</button>`).join('')}
+  </div>`;
+}
+
+// Carga sedes extra desde Firestore y las registra en memoria
+async function cargarSedesExtra() {
+  try {
+    const extras = await fbGet('sedes');
+    extras.forEach(s => {
+      if(!SEDES.find(x => x.id === s.id)) {
+        SEDES.push({ id: s.id, nombre: s.nombre });
+      }
+      const grupos = s.grupos || [];
+      _GROUPS_REGISTRY[s.id] = grupos;
+      grupos.forEach(g => { if(!ALL_GROUPS.includes(g)) ALL_GROUPS.push(g); });
+    });
+  } catch(e) { console.warn('cargarSedesExtra:', e); }
+}
 
 // ══════════════════════════════════════════════
 // STATE
@@ -370,6 +452,7 @@ const S = {
   filter: 'all',
   module: null,      // current module
   dbReady: false,
+  currentSede: 'ABC',
 };
 
 // ══════════════════════════════════════════════
@@ -1017,12 +1100,15 @@ async function renderUniformSelect(origin) {
     ? `<p style="background:var(--purple-light);border-radius:10px;padding:10px 14px;font-size:.85rem;color:var(--purple-dark);margin-bottom:16px">📌 Grupo asignado: <strong>${teacherGroups[0]}</strong></p>`
     : '';
 
+  const unifSede = S.currentSede || 'ABC';
+  const unifSedeGroups = getGroupsBySede(unifSede);
+
   const groupSelector = origin==='coordinator'
     ? `<div class="form-group">
         <label>Grupo</label>
         <select id="unifGroup">
           <option value="">Seleccionar grupo...</option>
-          ${ALL_GROUPS.map(g=>`<option>${g}</option>`).join('')}
+          ${unifSedeGroups.map(g=>`<option>${g}</option>`).join('')}
         </select>
       </div>`
     : teacherGroups.length===1
@@ -1035,9 +1121,15 @@ async function renderUniformSelect(origin) {
           </select>
         </div>`;
 
+  const sedeTabs = origin==='coordinator'
+    ? `<div style="display:flex;gap:8px;margin-bottom:16px;flex-wrap:wrap">
+        ${SEDES.map(s=>`<button class="btn ${s.id===unifSede?'btn-purple':'btn-outline'} btn-sm" onclick="S.currentSede='${s.id}';renderUniformSelect('${origin}')">🏫 ${s.nombre}</button>`).join('')}
+      </div>` : '';
+
   $app.innerHTML = `
   <button class="btn btn-outline btn-sm" onclick="${backFn}" style="margin-bottom:16px">← Volver</button>
   <h2 class="sec-title">👔 Revista de Uniforme</h2>
+  ${sedeTabs}
   <p class="sec-sub">Verificación periódica del uso del uniforme completo</p>
   <div class="card fade-up">
     ${teacherLabel}
@@ -1353,12 +1445,14 @@ async function renderUnifRepGrupo(origin) {
   const curMonth = new Date().toISOString().slice(0,7);
   const tGroups = origin==='teacher' ? (window._unifRepTeacherGroups||[]) : [];
 
+  const urgSede = S.currentSede || 'ABC';
+  const urgSedeGroups = getGroupsBySede(urgSede);
   const groupCtrl = origin==='coordinator'
     ? `<div class="form-group">
         <label>Grupo</label>
         <select id="urgGrupo">
           <option value="">Seleccionar grupo...</option>
-          ${ALL_GROUPS.map(g=>`<option>${g}</option>`).join('')}
+          ${urgSedeGroups.map(g=>`<option>${g}</option>`).join('')}
         </select>
       </div>`
     : tGroups.length===1
@@ -1635,29 +1729,42 @@ function showUnifRepColegio() {
 async function renderAttendanceSelect() {
   $app.innerHTML=`<div class="loading"><div class="spin-big"></div><p>Cargando...</p></div>`;
 
-  // Use teacher's assigned groups if set, otherwise fall back to all groups
   const gruposAsignados = S.user?.gruposAsignados;
+  const materias = S.user?.materias || [];
   const groupList = (gruposAsignados && gruposAsignados.length > 0)
     ? gruposAsignados.slice().sort()
     : ALL_GROUPS;
   const sinAsignacion = !gruposAsignados || gruposAsignados.length === 0;
+  const sinMaterias = materias.length === 0;
 
   $app.innerHTML = `
   <button class="btn btn-outline btn-sm" onclick="renderTeacherMenu()" style="margin-bottom:16px">← Volver</button>
   <h2 class="sec-title">📝 Pasar Lista</h2>
-  <p class="sec-sub">Seleccione el grupo para verificar asistencia</p>
-  ${sinAsignacion ? `<div style="background:var(--gold-light);border:1.5px solid var(--gold);border-radius:10px;padding:10px 14px;margin-bottom:16px;font-size:.83rem;color:#7a5a00">⚠️ No tiene grupos asignados. Contacte al coordinador para que configure su asignación de clases. Mientras tanto se muestran todos los grupos.</div>` : `<div style="background:var(--green-light);border:1.5px solid var(--green);border-radius:10px;padding:10px 14px;margin-bottom:16px;font-size:.83rem;color:var(--green)">✅ Mostrando sus <strong>${groupList.length} grupos asignados</strong></div>`}
+  <p class="sec-sub">Seleccione el grupo y la asignatura para verificar asistencia</p>
+  ${sinAsignacion ? `<div style="background:var(--gold-light);border:1.5px solid var(--gold);border-radius:10px;padding:10px 14px;margin-bottom:16px;font-size:.83rem;color:#7a5a00">⚠️ No tiene grupos asignados. Contacte al coordinador. Mientras tanto se muestran todos los grupos.</div>` : `<div style="background:var(--green-light);border:1.5px solid var(--green);border-radius:10px;padding:10px 14px;margin-bottom:16px;font-size:.83rem;color:var(--green)">✅ <strong>${groupList.length} grupo${groupList.length!==1?'s':''} asignado${groupList.length!==1?'s':''}</strong></div>`}
   <div class="card fade-up">
-    <div class="form-group" style="max-width:400px">
-      <label>Grupo</label>
-      <select id="selGroup">
-        <option value="">Seleccionar grupo...</option>
-        ${groupList.map(g=>`<option>${g}</option>`).join('')}
-      </select>
-    </div>
-    <div class="form-group" style="max-width:200px;margin-top:12px">
-      <label>Fecha</label>
-      <input type="date" id="attDate" value="${new Date().toISOString().split('T')[0]}">
+    <div class="form-grid" style="grid-template-columns:repeat(auto-fill,minmax(220px,1fr));max-width:700px">
+      <div class="form-group">
+        <label>Grupo</label>
+        <select id="selGroup">
+          <option value="">Seleccionar grupo...</option>
+          ${groupList.map(g=>`<option>${g}</option>`).join('')}
+        </select>
+      </div>
+      <div class="form-group">
+        <label>Asignatura</label>
+        ${sinMaterias
+          ? `<input type="text" id="selMateria" placeholder="Escriba la asignatura...">`
+          : `<select id="selMateria">
+              <option value="">Seleccionar asignatura...</option>
+              ${materias.map(m=>`<option>${m}</option>`).join('')}
+            </select>`}
+        ${sinMaterias ? `<span style="font-size:.75rem;color:var(--gold-dark)">⚠️ Sin asignaturas configuradas. Pida al coordinador que las asigne en su perfil.</span>` : ''}
+      </div>
+      <div class="form-group">
+        <label>Fecha</label>
+        <input type="date" id="attDate" value="${new Date().toISOString().split('T')[0]}">
+      </div>
     </div>
     <div class="actions">
       <button class="btn btn-purple" onclick="loadAttendance()">📋 Cargar Lista</button>
@@ -1666,25 +1773,36 @@ async function renderAttendanceSelect() {
 }
 
 async function loadAttendance() {
-  const group = document.getElementById('selGroup').value;
-  const date = document.getElementById('attDate').value;
-  if(!group) { toast('⚠️ Seleccione un grupo','err'); return; }
+  const group   = document.getElementById('selGroup').value;
+  const date    = document.getElementById('attDate').value;
+  const materia = document.getElementById('selMateria')?.value || '';
+  if(!group)   { toast('⚠️ Seleccione un grupo','err'); return; }
+  if(!materia) { toast('⚠️ Seleccione o escriba la asignatura','err'); return; }
 
   $app.innerHTML=`<div class="loading"><div class="spin-big"></div><p>Cargando estudiantes...</p></div>`;
   const students = await fbGet('estudiantes');
   const groupStudents = students.filter(s=>s.grupo===group).sort((a,b)=>a.nombre.localeCompare(b.nombre));
-  // Store context globally for save button
-  window._attContext = { group, date, ids: groupStudents.map(s=>s.id) };
+  window._attContext = { group, date, materia, ids: groupStudents.map(s=>s.id) };
 
-  // Check if attendance already saved
+  // Buscar registro existente para este grupo + fecha + materia
   const attRecords = await fbGet('asistencia_estudiantes');
-  const existing = attRecords.find(r=>r.grupo===group && r.fecha===date);
+  const matKey = materia.replace(/[\s\.°\-]/g,'_');
+  const docId  = group.replace(/[\s\.°\-]/g,'_') + '_' + date + '_' + matKey;
+  const existing = attRecords.find(r=>r.grupo===group && r.fecha===date && r.materia===materia)
+                || attRecords.find(r=>r.id===docId);
   const absentIds = existing?.ausentes || [];
+
+  // Otras sesiones del mismo grupo y fecha
+  const otrasSesiones = attRecords.filter(r=>r.grupo===group && r.fecha===date && r.materia && r.materia!==materia);
 
   $app.innerHTML = `
   <button class="btn btn-outline btn-sm" onclick="renderAttendanceSelect()" style="margin-bottom:16px">← Volver</button>
   <h2 class="sec-title">📝 Lista de Asistencia</h2>
-  <p class="sec-sub">${group} · ${fmtDate(date)} · ${groupStudents.length} estudiantes</p>
+  <p class="sec-sub">${group} · <strong>${materia}</strong> · ${fmtDate(date)} · ${groupStudents.length} estudiantes</p>
+  ${otrasSesiones.length ? `
+  <div style="background:var(--purple-light);border:1.5px solid var(--purple);border-radius:10px;padding:10px 14px;margin-bottom:14px;font-size:.82rem;color:var(--purple-dark)">
+    📋 Otras sesiones hoy en este grupo: ${otrasSesiones.map(r=>`<strong>${r.materia}</strong> (${r.ausentes?.length||0} ausentes, reg. por ${r.docenteNombre||'—'})`).join(' · ')}
+  </div>` : ''}
   <div class="card fade-up">
     <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:16px;flex-wrap:wrap;gap:10px">
       <p style="font-size:.85rem;color:var(--gray)">✅ = Presente &nbsp;|&nbsp; ☑️ marcado = <span style="color:var(--red);font-weight:700">Ausente</span></p>
@@ -1705,11 +1823,8 @@ async function loadAttendance() {
           </div>`).join('')}
          </div>`}
     <div class="actions" style="margin-top:20px">
-      <button class="btn btn-purple" onclick="saveAttendance()">
-        💾 Guardar Asistencia
-      </button>
+      <button class="btn btn-purple" onclick="saveAttendance()">💾 Guardar Asistencia</button>
     </div>
-    <div id="attSaved" style="display:none;margin-top:10px;color:var(--green);font-weight:600">✅ Asistencia guardada exitosamente</div>
   </div>`;
 }
 
@@ -1731,13 +1846,14 @@ function markAll(absent) {
 async function saveAttendance() {
   const ctx = window._attContext;
   if(!ctx) { toast('⚠️ Cargue la lista primero','err'); return; }
-  const { group, date, ids } = ctx;
-  const ausentes = ids.filter(id => document.getElementById(`chk_${id}`)?.checked);
+  const { group, date, materia, ids } = ctx;
+  const ausentes  = ids.filter(id => document.getElementById(`chk_${id}`)?.checked);
   const presentes = ids.length - ausentes.length;
-  const docId = group.replace(/[\s\.°\-]/g,'_') + '_' + date;
+  const matKey    = materia.replace(/[\s\.°\-]/g,'_');
+  const docId     = group.replace(/[\s\.°\-]/g,'_') + '_' + date + '_' + matKey;
   try {
     await fbSet('asistencia_estudiantes', docId, {
-      grupo: group, fecha: date,
+      grupo: group, fecha: date, materia,
       ausentes, totalEstudiantes: ids.length,
       presentes, docenteCedula: S.user?.cedula,
       docenteNombre: S.user?.name,
@@ -1747,10 +1863,14 @@ async function saveAttendance() {
     <div class="success-wrap fade-up">
       <div class="success-circle">✅</div>
       <h2 style="font-family:'Playfair Display',serif;font-size:1.4rem;margin-bottom:10px">¡Asistencia Guardada!</h2>
-      <div class="card" style="max-width:400px;margin:0 auto 24px;text-align:left">
+      <div class="card" style="max-width:440px;margin:0 auto 24px;text-align:left">
         <div class="drow">
           <div class="df"><div class="dl">Grupo</div><div class="dv">${group}</div></div>
+          <div class="df"><div class="dl">Asignatura</div><div class="dv" style="color:var(--purple);font-weight:700">${materia}</div></div>
+        </div>
+        <div class="drow">
           <div class="df"><div class="dl">Fecha</div><div class="dv">${fmtDate(date)}</div></div>
+          <div class="df"><div class="dl">Docente</div><div class="dv">${S.user?.name||'—'}</div></div>
         </div>
         <div class="drow">
           <div class="df"><div class="dl" style="color:var(--green)">Presentes</div><div class="dv" style="color:var(--green);font-weight:700">${presentes}</div></div>
@@ -1915,6 +2035,11 @@ function renderCoordMenu() {
   <h2 class="sec-title">🧑‍💼 Panel de Coordinación</h2>
   <p class="sec-sub">I.E. Alfonso Builes Correa — Gestión integral</p>
   <div class="menu-grid fade-up" style="grid-template-columns:repeat(auto-fill,minmax(220px,1fr))">
+    <div class="menu-item" onclick="renderDashboard()" style="border-color:var(--purple);background:var(--purple-light)">
+      <div class="mi">📊</div>
+      <h3>Dashboard</h3>
+      <p>Resumen ejecutivo de gestión docente</p>
+    </div>
     <div class="menu-item" onclick="renderAdminDocentes()">
       <div class="mi">👨‍🏫</div>
       <h3>Administrar Docentes</h3>
@@ -1930,9 +2055,661 @@ function renderCoordMenu() {
       <h3>Administrar Grupos</h3>
       <p>Asignar directores de grupo</p>
     </div>
+    <div class="menu-item" onclick="renderGestionSedes()">
+      <div class="mi">🏫</div>
+      <h3>Gestionar Sedes</h3>
+      <p>Agregar o eliminar sedes de la institución</p>
+    </div>
+    <div class="menu-item" onclick="renderMigracionGrupos()" style="border-color:var(--gold);background:var(--gold-light)">
+      <div class="mi">🔧</div>
+      <h3>Migración de Grupos</h3>
+      <p>Renombrar grupos de tarde en todos los registros</p>
+    </div>
   </div>`;
 }
 
+
+// ══════════════════════════════════════════════
+// DASHBOARD DE GESTIÓN
+// ══════════════════════════════════════════════
+function kpiCard(title, value, label, pct, color) {
+  return `<div class="card fade-up" style="text-align:center;padding:18px 14px;min-width:0">
+    <div style="font-size:.76rem;color:var(--gray);font-weight:600;margin-bottom:6px">${title}</div>
+    <div style="font-size:1.8rem;font-weight:800;color:${color};line-height:1.1;margin-bottom:4px">${value}</div>
+    <div style="font-size:.71rem;color:var(--gray)">${label}</div>
+    ${typeof pct==='number'?`<div style="margin-top:8px;background:#eee;border-radius:8px;height:6px;overflow:hidden"><div style="width:${Math.min(pct,100)}%;height:100%;background:${color};border-radius:8px;transition:width .6s"></div></div>`:''}
+  </div>`;
+}
+
+async function renderDashboard() {
+  $app.innerHTML = `<div class="loading"><div class="spin-big"></div><p>Cargando dashboard...</p></div>`;
+  try {
+    const [docentes, asistEst, obs, asistDoc, permisos, revista, estudiantes] = await Promise.all([
+      fbGet('docentes'), fbGet('asistencia_estudiantes'), fbGet('observadores'),
+      fbGet('asistencia_docentes'), fbGet('permisos'), fbGet('revista_uniforme'), fbGet('estudiantes')
+    ]);
+
+    // ── Fechas ──────────────────────────────────────────────
+    const hoy = new Date();
+    const toStr = d => d.toISOString().slice(0,10);
+    const todayStr = toStr(hoy);
+    const daysAgo = n => { const d=new Date(hoy); d.setDate(d.getDate()-n); return toStr(d); };
+    const weekAgo    = daysAgo(7);
+    const biweekAgo  = daysAgo(14);
+    const monthStart = toStr(new Date(hoy.getFullYear(), hoy.getMonth(), 1));
+    const yearNow    = hoy.getFullYear();
+
+    // ── Llamado a lista HOY ─────────────────────────────────
+    const attHoy = asistEst.filter(r => r.fecha === todayStr);
+    const gruposConAttHoy = new Set(attHoy.map(r => r.grupo));
+    const totalGrupos = ALL_GROUPS.length;
+    const pctHoy = totalGrupos ? Math.round(gruposConAttHoy.size / totalGrupos * 100) : 0;
+
+    // ── Actividad docente — últimos 7 días ──────────────────
+    const attSemana = asistEst.filter(r => r.fecha >= weekAgo);
+    const docenteMap = {};
+    attSemana.forEach(r => {
+      if(!r.docenteCedula) return;
+      if(!docenteMap[r.docenteCedula]) docenteMap[r.docenteCedula] = { nombre: r.docenteNombre || r.docenteCedula, dias: new Set(), grupos: new Set() };
+      docenteMap[r.docenteCedula].dias.add(r.fecha);
+      docenteMap[r.docenteCedula].grupos.add(r.grupo);
+    });
+    const activosCed = new Set(Object.keys(docenteMap));
+    const docentesConCedula = docentes.filter(d => d.cedula);
+    const inactivos = docentesConCedula.filter(d => !activosCed.has(String(d.cedula)));
+    const actividadArr = Object.entries(docenteMap)
+      .map(([c, v]) => ({ cedula:c, nombre:v.nombre, dias:v.dias.size, grupos:v.grupos.size }))
+      .sort((a,b) => b.dias - a.dias);
+    const pctActivos = docentesConCedula.length
+      ? Math.round(activosCed.size / docentesConCedula.length * 100) : 0;
+
+    // ── Observadores año actual ─────────────────────────────
+    const obsAño = obs.filter(o => parseInt(o.año) === yearNow);
+    const gruposConObs = new Set(obsAño.map(o => o.grupo));
+    const gruposSinObs = ALL_GROUPS.filter(g => !gruposConObs.has(g));
+    const pctObs = totalGrupos ? Math.round(gruposConObs.size / totalGrupos * 100) : 0;
+
+    // ── Ausentismo estudiantil — últimas 2 semanas ──────────
+    const attBi = asistEst.filter(r => r.fecha >= biweekAgo);
+    const ausByGrupo = {};
+    attBi.forEach(r => {
+      if(!ausByGrupo[r.grupo]) ausByGrupo[r.grupo] = { ausentes:0, total:0 };
+      ausByGrupo[r.grupo].ausentes += Array.isArray(r.ausentes) ? r.ausentes.length : 0;
+      ausByGrupo[r.grupo].total    += r.totalEstudiantes || 0;
+    });
+    const topAusentismo = Object.entries(ausByGrupo)
+      .map(([g,v]) => ({ grupo:g, pct: v.total ? Math.round(v.ausentes/v.total*100) : 0, ausentes:v.ausentes, total:v.total }))
+      .filter(x => x.pct > 0)
+      .sort((a,b) => b.pct - a.pct)
+      .slice(0, 8);
+
+    // ── Permisos pendientes ─────────────────────────────────
+    const permPend = permisos.filter(p => !p.estado || p.estado === 'Pendiente' || p.estado === 'pending');
+
+    // ── Revista uniforme este mes ───────────────────────────
+    const revMes = revista.filter(r => r.fecha && r.fecha >= monthStart);
+    const revByGrupo = {};
+    revMes.forEach(r => { revByGrupo[r.grupo] = (revByGrupo[r.grupo]||0)+1; });
+    const topRevista = Object.entries(revByGrupo).sort((a,b)=>b[1]-a[1]).slice(0,6);
+
+    // ── Colores semáforo ────────────────────────────────────
+    const col  = pct => pct>=80 ? 'var(--green)' : pct>=40 ? 'var(--gold)' : 'var(--red)';
+    const icon = pct => pct>=80 ? '🟢' : pct>=40 ? '🟡' : '🔴';
+
+    // ── RENDER ──────────────────────────────────────────────
+    $app.innerHTML = `
+    <button class="btn btn-outline btn-sm" onclick="renderCoordMenu()" style="margin-bottom:16px">← Volver</button>
+    <div style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:8px;margin-bottom:4px">
+      <h2 class="sec-title" style="margin:0">📊 Dashboard de Gestión</h2>
+      <button class="btn btn-outline btn-sm" onclick="renderDashboard()" style="gap:4px">🔄 Actualizar</button>
+    </div>
+    <p class="sec-sub" style="margin-bottom:20px">Resumen ejecutivo — ${fmtDate(todayStr)}</p>
+
+    <!-- KPI CARDS -->
+    <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(175px,1fr));gap:14px;margin-bottom:24px">
+      ${kpiCard('📋 Lista Hoy', gruposConAttHoy.size+'/'+totalGrupos, 'grupos con asistencia', pctHoy, col(pctHoy))}
+      ${kpiCard('👨‍🏫 Docentes Activos', activosCed.size+'/'+docentesConCedula.length, 'últimos 7 días', pctActivos, col(pctActivos))}
+      ${kpiCard('📒 Observadores '+yearNow, gruposConObs.size+'/'+totalGrupos, 'grupos con ficha', pctObs, col(pctObs))}
+      ${kpiCard('📨 Permisos', permPend.length, 'pendientes por revisar', permPend.length===0?100:permPend.length<5?50:20, permPend.length===0?'var(--green)':permPend.length<5?'var(--gold)':'var(--red)')}
+    </div>
+
+    <!-- LLAMADO A LISTA HOY -->
+    <div class="card fade-up" style="margin-bottom:20px">
+      <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:14px;flex-wrap:wrap;gap:8px">
+        <h3 style="font-size:1rem;font-weight:700;margin:0">📋 Llamado a lista — Hoy</h3>
+        <span style="font-size:.85rem;font-weight:700;color:${col(pctHoy)}">${icon(pctHoy)} ${gruposConAttHoy.size} de ${totalGrupos} grupos (${pctHoy}%)</span>
+      </div>
+      <div style="display:flex;flex-wrap:wrap;gap:5px">
+        ${ALL_GROUPS.map(g => {
+          const done = gruposConAttHoy.has(g);
+          return `<span title="${done?'✅ Lista registrada':'⏳ Sin registro hoy'}" style="font-size:.7rem;padding:3px 9px;border-radius:20px;border:1.5px solid ${done?'var(--green)':'#ddd'};background:${done?'#e8f9ee':'#fafafa'};color:${done?'var(--green)':'var(--gray)'}">
+            ${done?'✅':'⏳'} ${g}
+          </span>`;
+        }).join('')}
+      </div>
+    </div>
+
+    <!-- CUADRÍCULA DOS COLUMNAS -->
+    <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(340px,1fr));gap:20px;margin-bottom:24px">
+
+      <!-- Actividad docente 7 días -->
+      <div class="card fade-up">
+        <h3 style="font-size:1rem;font-weight:700;margin-bottom:2px">👨‍🏫 Actividad Docente — Últimos 7 días</h3>
+        <p style="font-size:.75rem;color:var(--gray);margin-bottom:12px">Días en que cada docente registró asistencia estudiantil</p>
+        ${actividadArr.length ? `
+        <div style="max-height:260px;overflow-y:auto;margin-bottom:10px">
+          <table style="width:100%;font-size:.8rem;border-collapse:collapse">
+            <thead>
+              <tr style="border-bottom:2px solid var(--border)">
+                <th style="text-align:left;padding:5px 6px">Docente</th>
+                <th style="text-align:center;width:52px">Días</th>
+                <th style="padding-left:6px">Progreso</th>
+              </tr>
+            </thead>
+            <tbody>
+              ${actividadArr.map(d => {
+                const p = Math.round(d.dias/7*100);
+                const c = p>=70?'var(--green)':p>=40?'var(--gold)':'var(--red)';
+                return `<tr style="border-bottom:1px solid var(--border)">
+                  <td style="padding:5px 6px">${d.nombre}</td>
+                  <td style="text-align:center;font-weight:700;color:${c}">${d.dias}/7</td>
+                  <td style="padding:4px 6px 4px 8px">
+                    <div style="background:#eee;border-radius:8px;height:7px">
+                      <div style="width:${p}%;height:100%;background:${c};border-radius:8px"></div>
+                    </div>
+                  </td>
+                </tr>`;
+              }).join('')}
+            </tbody>
+          </table>
+        </div>` : ''}
+        ${inactivos.length
+          ? `<div style="padding:8px 12px;background:#fff4f4;border:1.5px solid var(--red);border-radius:10px;font-size:.77rem">
+               <strong style="color:var(--red)">🔴 Sin registro esta semana (${inactivos.length}):</strong><br>
+               ${inactivos.map(d=>d.name).join(' · ')}
+             </div>`
+          : actividadArr.length
+            ? `<div style="font-size:.78rem;color:var(--green)">✅ Todos los docentes registraron asistencia esta semana.</div>`
+            : `<div class="empty" style="padding:16px 0"><div class="ei">📋</div><p>Sin registros esta semana.</p></div>`
+        }
+      </div>
+
+      <!-- Observadores -->
+      <div class="card fade-up">
+        <h3 style="font-size:1rem;font-weight:700;margin-bottom:2px">📒 Observadores — ${yearNow}</h3>
+        <p style="font-size:.75rem;color:var(--gray);margin-bottom:12px">${gruposConObs.size} de ${totalGrupos} grupos tienen al menos una ficha registrada</p>
+        <div style="display:flex;align-items:center;gap:12px;margin-bottom:16px">
+          <div style="flex:1;background:#eee;border-radius:12px;height:14px;overflow:hidden">
+            <div style="width:${pctObs}%;height:100%;background:${col(pctObs)};border-radius:12px"></div>
+          </div>
+          <span style="font-weight:800;font-size:.95rem;color:${col(pctObs)}">${pctObs}%</span>
+        </div>
+        ${gruposSinObs.length
+          ? `<div style="font-size:.77rem;font-weight:700;color:var(--red);margin-bottom:8px">🔴 Grupos sin observador este año (${gruposSinObs.length}):</div>
+             <div style="display:flex;flex-wrap:wrap;gap:5px;max-height:150px;overflow-y:auto">
+               ${gruposSinObs.map(g=>`<span style="font-size:.71rem;padding:2px 8px;border-radius:20px;border:1.5px solid var(--red);color:var(--red)">${g}</span>`).join('')}
+             </div>`
+          : `<div style="font-size:.82rem;color:var(--green)">✅ Todos los grupos tienen ficha de observador registrada.</div>`
+        }
+      </div>
+
+      <!-- Ausentismo estudiantil -->
+      <div class="card fade-up">
+        <h3 style="font-size:1rem;font-weight:700;margin-bottom:2px">📉 Ausentismo — Últimas 2 semanas</h3>
+        <p style="font-size:.75rem;color:var(--gray);margin-bottom:12px">Grupos con mayor porcentaje de inasistencias</p>
+        ${topAusentismo.length ? `
+        <table style="width:100%;font-size:.79rem;border-collapse:collapse">
+          <thead>
+            <tr style="border-bottom:2px solid var(--border)">
+              <th style="text-align:left;padding:4px 6px">Grupo</th>
+              <th style="text-align:center;width:60px">Ausentes</th>
+              <th style="padding-left:6px">% Ausentismo</th>
+            </tr>
+          </thead>
+          <tbody>
+            ${topAusentismo.map(x => {
+              const c = x.pct>=20?'var(--red)':x.pct>=10?'var(--gold)':'var(--green)';
+              return `<tr style="border-bottom:1px solid var(--border)">
+                <td style="padding:4px 6px;font-size:.75rem">${x.grupo}</td>
+                <td style="text-align:center;color:var(--red);font-weight:700">${x.ausentes}</td>
+                <td style="padding:4px 6px 4px 8px">
+                  <div style="display:flex;align-items:center;gap:6px">
+                    <div style="flex:1;background:#eee;border-radius:8px;height:7px">
+                      <div style="width:${Math.min(x.pct*2,100)}%;height:100%;background:${c};border-radius:8px"></div>
+                    </div>
+                    <span style="font-size:.71rem;font-weight:700;color:${c};min-width:32px">${x.pct}%</span>
+                  </div>
+                </td>
+              </tr>`;
+            }).join('')}
+          </tbody>
+        </table>` : `<div class="empty" style="padding:16px 0"><div class="ei">✅</div><p>Sin datos de inasistencias en las últimas 2 semanas.</p></div>`}
+      </div>
+
+      <!-- Revista + Permisos juntos -->
+      <div style="display:flex;flex-direction:column;gap:16px">
+        <div class="card fade-up">
+          <h3 style="font-size:1rem;font-weight:700;margin-bottom:2px">👔 Revista de Uniforme — Este mes</h3>
+          <p style="font-size:.75rem;color:var(--gray);margin-bottom:10px">${revMes.length} registro(s) en ${Object.keys(revByGrupo).length} grupos</p>
+          ${topRevista.length ? `
+          <div style="display:flex;flex-direction:column;gap:7px">
+            ${topRevista.map(([g,n]) => {
+              const maxN = topRevista[0][1];
+              return `<div style="display:flex;align-items:center;gap:8px;font-size:.8rem">
+                <span style="flex:1;min-width:0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${g}</span>
+                <div style="width:90px;background:#eee;border-radius:8px;height:7px">
+                  <div style="width:${Math.round(n/maxN*100)}%;height:100%;background:var(--purple);border-radius:8px"></div>
+                </div>
+                <span style="font-weight:700;color:var(--purple);min-width:24px;text-align:right">${n}</span>
+              </div>`;
+            }).join('')}
+          </div>` : `<div style="font-size:.82rem;color:var(--gray)">Sin registros este mes.</div>`}
+        </div>
+
+        <div class="card fade-up" style="${permPend.length?'border-color:var(--gold);background:var(--gold-light)':''}">
+          <h3 style="font-size:1rem;font-weight:700;margin-bottom:2px">📨 Permisos Pendientes</h3>
+          ${permPend.length ? `
+          <p style="font-size:.75rem;margin-bottom:10px;color:var(--gold-dark)">⚠️ <strong>${permPend.length}</strong> permiso(s) requieren atención</p>
+          <div style="max-height:160px;overflow-y:auto;display:flex;flex-direction:column;gap:6px">
+            ${permPend.slice(0,6).map(p=>`
+            <div style="font-size:.77rem;padding:6px 10px;background:white;border-radius:8px;border:1px solid #ddd">
+              <strong>${p.studentName||p.nombre||'Estudiante'}</strong> — ${p.grupo||'Grupo N/D'}<br>
+              <span style="color:var(--gray)">${p.reasonType||p.motivo||'Sin motivo especificado'}</span>
+            </div>`).join('')}
+            ${permPend.length>6?`<div style="font-size:.74rem;color:var(--gray);text-align:center;padding:4px">...y ${permPend.length-6} más</div>`:''}
+          </div>` : `<p style="font-size:.82rem;color:var(--green)">✅ No hay permisos pendientes.</p>`}
+        </div>
+      </div>
+
+    </div>`;
+  } catch(e) {
+    $app.innerHTML = `
+    <div class="card" style="text-align:center;padding:40px 20px">
+      <div style="font-size:2.5rem;margin-bottom:10px">❌</div>
+      <h3>Error al cargar el dashboard</h3>
+      <p style="color:var(--gray);font-size:.85rem">${e.message}</p>
+      <button class="btn btn-outline" onclick="renderCoordMenu()" style="margin-top:16px">← Volver al menú</button>
+    </div>`;
+  }
+}
+
+// ══════════════════════════════════════════════
+// GESTIÓN DE SEDES
+// ══════════════════════════════════════════════
+async function renderGestionSedes() {
+  $app.innerHTML=`<div class="loading"><div class="spin-big"></div><p>Cargando sedes...</p></div>`;
+  const extras = await fbGet('sedes');
+
+  const sedesBase = [
+    { id:'ABC', nombre:'Sede Alfonso Builes Correa', base:true, grupos: GROUPS_ABC.length },
+    { id:'JBE', nombre:'Sede Jesús de la Buena Esperanza', base:true, grupos: GROUPS_JBE.length },
+  ];
+  const sedesDin = extras.map(s=>({ id:s.id, nombre:s.nombre, base:false, grupos:(s.grupos||[]).length, docId:s.id }));
+
+  $app.innerHTML = `
+  <button class="btn btn-outline btn-sm" onclick="renderCoordMenu()" style="margin-bottom:16px">← Volver</button>
+  <h2 class="sec-title">🏫 Gestionar Sedes</h2>
+  <p class="sec-sub">Sedes activas de la institución</p>
+
+  <div class="card fade-up" style="margin-bottom:16px">
+    ${[...sedesBase,...sedesDin].map(s=>`
+    <div class="teacher-item">
+      <div class="teacher-avatar" style="background:${s.base?'var(--purple)':'var(--blue)'}">${s.id.slice(0,2)}</div>
+      <div style="flex:1">
+        <div style="font-weight:700;font-size:.95rem">${s.nombre}</div>
+        <div style="font-size:.76rem;color:var(--gray)">${s.grupos} grupos configurados${s.base?' · <span style="color:var(--purple)">Sede base (no se puede eliminar)</span>':''}</div>
+      </div>
+      ${!s.base ? `<button class="btn btn-red btn-xs" onclick="eliminarSede('${s.id}')">🗑️ Eliminar</button>` : ''}
+    </div>`).join('')}
+    ${sedesBase.length+sedesDin.length===0?`<div class="empty"><div class="ei">🏫</div><p>No hay sedes registradas.</p></div>`:''}
+  </div>
+
+  <div class="card fade-up">
+    <h3 style="font-size:1rem;font-weight:700;margin-bottom:16px">➕ Agregar Nueva Sede</h3>
+    <div class="form-grid" style="grid-template-columns:repeat(auto-fill,minmax(240px,1fr));max-width:700px">
+      <div class="form-group">
+        <label>Nombre de la Sede</label>
+        <input type="text" id="ns_nombre" placeholder="Ej: Sede La Esperanza">
+      </div>
+      <div class="form-group">
+        <label>Código / Sufijo <span style="font-size:.75rem;color:var(--gray)">(3–5 letras, sin espacios)</span></label>
+        <input type="text" id="ns_sufijo" placeholder="Ej: LSE" maxlength="5" style="text-transform:uppercase" oninput="this.value=this.value.toUpperCase().replace(/[^A-Z0-9]/g,'')">
+      </div>
+    </div>
+
+    <h4 style="font-size:.9rem;font-weight:700;margin:16px 0 10px;color:var(--purple-dark)">📐 Configuración de Niveles y Grupos</h4>
+    <div style="font-size:.8rem;color:var(--gray);margin-bottom:12px">Para cada grado, indique cuántos grupos tiene en cada jornada (0 = sin ese jornada).</div>
+
+    <div style="overflow-x:auto">
+    <table class="tbl" id="sedeGradosTable" style="min-width:500px;font-size:.83rem">
+      <thead>
+        <tr>
+          <th style="width:40px"><input type="checkbox" id="chkAllGrados" onchange="toggleAllGradosSede(this.checked)" title="Seleccionar todos"></th>
+          <th>Nivel / Grado</th>
+          <th style="text-align:center;width:90px">☀️ Mañana</th>
+          <th style="text-align:center;width:90px">🌇 Tarde</th>
+        </tr>
+      </thead>
+      <tbody>
+        ${buildSedeGradosRows()}
+      </tbody>
+    </table>
+    </div>
+
+    <div class="actions" style="margin-top:16px">
+      <button class="btn btn-outline btn-sm" onclick="previewNuevaSede()">👁️ Vista previa de grupos</button>
+      <button class="btn btn-purple" onclick="guardarNuevaSede()">💾 Guardar Sede</button>
+    </div>
+    <div id="nsPreview" style="margin-top:12px"></div>
+  </div>`;
+}
+
+function buildSedeGradosRows() {
+  const niveles = [
+    { label:'🟡 Preescolar', grados:[
+      {g:'Prejardín', isPreesc:true},{g:'Jardín', isPreesc:true},{g:'Transición', isPreesc:true}
+    ]},
+    { label:'🟢 Primaria', grados:[
+      {g:'1°'},{g:'2°'},{g:'3°'},{g:'4°'},{g:'5°'}
+    ]},
+    { label:'🔵 Secundaria', grados:[
+      {g:'6°'},{g:'7°'},{g:'8°'},{g:'9°'}
+    ]},
+    { label:'🟣 Media', grados:[
+      {g:'10°'},{g:'11°'}
+    ]},
+  ];
+
+  return niveles.map(nivel => `
+    <tr style="background:var(--cream)">
+      <td></td>
+      <td colspan="3" style="font-weight:700;font-size:.78rem;color:var(--purple-dark);padding:6px 10px">${nivel.label}</td>
+    </tr>
+    ${nivel.grados.map(({g, isPreesc}) => {
+      const safeId = g.replace(/[°]/g,'');
+      return `<tr>
+        <td style="text-align:center"><input type="checkbox" class="sedeGradoChk" id="chkg_${safeId}" data-grado="${g}" data-preesc="${isPreesc||false}" onchange="onSedeGradoChange(this)"></td>
+        <td style="padding-left:20px">${g}</td>
+        <td style="text-align:center"><input type="number" id="nm_${safeId}" min="0" max="10" value="1" style="width:60px;text-align:center;opacity:.4;pointer-events:none" disabled></td>
+        <td style="text-align:center"><input type="number" id="nt_${safeId}" min="0" max="10" value="1" style="width:60px;text-align:center;opacity:.4;pointer-events:none" disabled></td>
+      </tr>`;
+    }).join('')}`).join('');
+}
+
+function onSedeGradoChange(chk) {
+  const safeId = chk.id.replace('chkg_','');
+  const nm = document.getElementById(`nm_${safeId}`);
+  const nt = document.getElementById(`nt_${safeId}`);
+  if(nm) { nm.disabled=!chk.checked; nm.style.opacity=chk.checked?'1':'.4'; nm.style.pointerEvents=chk.checked?'auto':'none'; }
+  if(nt) { nt.disabled=!chk.checked; nt.style.opacity=chk.checked?'1':'.4'; nt.style.pointerEvents=chk.checked?'auto':'none'; }
+}
+
+function toggleAllGradosSede(check) {
+  document.querySelectorAll('.sedeGradoChk').forEach(chk=>{ chk.checked=check; onSedeGradoChange(chk); });
+}
+
+function getNuevaSedeDatos() {
+  const nombre  = document.getElementById('ns_nombre')?.value.trim();
+  const sufijo  = document.getElementById('ns_sufijo')?.value.trim().toUpperCase();
+  const grados  = [];
+  const preescGrupos = [];
+
+  document.querySelectorAll('.sedeGradoChk:checked').forEach(chk => {
+    const g = chk.dataset.grado;
+    const safeId = g.replace(/[°]/g,'');
+    const m = parseInt(document.getElementById(`nm_${safeId}`)?.value)||0;
+    const t = parseInt(document.getElementById(`nt_${safeId}`)?.value)||0;
+    const isPreesc = chk.dataset.preesc === 'true';
+    if(isPreesc) {
+      for(let i=1;i<=m;i++) preescGrupos.push(`${g}-${i} - J.Mañana [${sufijo}]`);
+      for(let i=m+1;i<=m+t;i++) preescGrupos.push(`${g}-${i} - J.Tarde [${sufijo}]`);
+    } else {
+      grados.push({ g, m, t });
+    }
+  });
+
+  const gradoGroups = buildGroups(preescGrupos, grados, sufijo);
+  return { nombre, sufijo, grados, preescGrupos, grupos: gradoGroups };
+}
+
+function previewNuevaSede() {
+  const { nombre, sufijo, grupos } = getNuevaSedeDatos();
+  const el = document.getElementById('nsPreview');
+  if(!el) return;
+  if(!sufijo) { el.innerHTML=`<div style="color:var(--red);font-size:.85rem">⚠️ Ingrese un código/sufijo primero.</div>`; return; }
+  if(!grupos.length) { el.innerHTML=`<div style="color:var(--gold-dark);font-size:.85rem">⚠️ Seleccione al menos un grado.</div>`; return; }
+
+  el.innerHTML = `
+  <div style="background:var(--purple-light);border:1.5px solid var(--purple);border-radius:12px;padding:14px 18px">
+    <div style="font-weight:700;font-size:.9rem;color:var(--purple-dark);margin-bottom:10px">Vista previa — ${nombre||'Sin nombre'} [${sufijo}] · ${grupos.length} grupos</div>
+    <div style="display:flex;flex-wrap:wrap;gap:6px">
+      ${grupos.map(g=>`<span style="font-size:.75rem;background:white;border:1px solid var(--purple);border-radius:6px;padding:2px 8px;color:var(--purple-dark)">${g}</span>`).join('')}
+    </div>
+  </div>`;
+}
+
+async function guardarNuevaSede() {
+  const { nombre, sufijo, grados, preescGrupos, grupos } = getNuevaSedeDatos();
+  if(!nombre) { toast('⚠️ Ingrese el nombre de la sede','err'); return; }
+  if(!sufijo || sufijo.length < 2) { toast('⚠️ El código debe tener al menos 2 letras','err'); return; }
+  if(SEDES.find(s=>s.id===sufijo)) { toast(`⚠️ Ya existe una sede con código ${sufijo}`,'err'); return; }
+  if(!grupos.length) { toast('⚠️ Seleccione al menos un grado','err'); return; }
+
+  try {
+    await fbSet('sedes', sufijo, { id:sufijo, nombre, sufijo, grados, preescGrupos, grupos });
+    // Actualizar memoria sin recargar página
+    SEDES.push({ id:sufijo, nombre });
+    _GROUPS_REGISTRY[sufijo] = grupos;
+    grupos.forEach(g=>{ if(!ALL_GROUPS.includes(g)) ALL_GROUPS.push(g); });
+    toast(`✅ Sede "${nombre}" agregada con ${grupos.length} grupos`, 'ok');
+    renderGestionSedes();
+  } catch(e) {
+    toast('❌ Error al guardar: '+e.message, 'err');
+  }
+}
+
+async function eliminarSede(sedeId) {
+  const sede = SEDES.find(s=>s.id===sedeId);
+  if(!sede) return;
+  if(!confirm(`¿Eliminar la sede "${sede.nombre}"?\n\nLos estudiantes y docentes asignados a grupos de esta sede NO se eliminarán, pero quedarán en grupos que ya no aparecerán en los menús.`)) return;
+  try {
+    await fbDelete('sedes', sedeId);
+    SEDES = SEDES.filter(s=>s.id!==sedeId);
+    delete _GROUPS_REGISTRY[sedeId];
+    const grupos = _GROUPS_REGISTRY[sedeId] || [];
+    grupos.forEach(g=>{ const idx=ALL_GROUPS.indexOf(g); if(idx>-1) ALL_GROUPS.splice(idx,1); });
+    toast(`✅ Sede eliminada`, 'ok');
+    renderGestionSedes();
+  } catch(e) {
+    toast('❌ Error al eliminar: '+e.message, 'err');
+  }
+}
+
+// ══════════════════════════════════════════════
+// MIGRACIÓN DE GRUPOS DE TARDE
+// ══════════════════════════════════════════════
+async function renderMigracionGrupos() {
+  $app.innerHTML=`<div class="loading"><div class="spin-big"></div><p>Analizando registros...</p></div>`;
+  const map = buildMigrationMap();
+  const oldNames = Object.keys(map);
+
+  // Escanear todas las colecciones afectadas
+  const [estudiantes, grupos, docentes, asistencia, revista] = await Promise.all([
+    fbGet('estudiantes'), fbGet('grupos'), fbGet('docentes'),
+    fbGet('asistencia_estudiantes'), fbGet('revista_uniforme')
+  ]);
+
+  const afectados = {
+    estudiantes: estudiantes.filter(s => oldNames.includes(s.grupo)),
+    grupos:      grupos.filter(g => oldNames.includes(g.nombre)),
+    docentes:    docentes.filter(d => (d.gruposAsignados||[]).some(g => oldNames.includes(g))),
+    asistencia:  asistencia.filter(r => oldNames.includes(r.grupo)),
+    revista:     revista.filter(r => oldNames.includes(r.grupo)),
+  };
+
+  const total = Object.values(afectados).reduce((s,a)=>s+a.length,0);
+
+  if(total === 0) {
+    $app.innerHTML = `
+    <button class="btn btn-outline btn-sm" onclick="renderCoordMenu()" style="margin-bottom:16px">← Volver</button>
+    <h2 class="sec-title">🔧 Migración de Grupos</h2>
+    <div class="card fade-up" style="text-align:center;padding:40px 20px">
+      <div style="font-size:3rem;margin-bottom:12px">✅</div>
+      <h3 style="font-size:1.1rem;font-weight:700;color:var(--green);margin-bottom:8px">No hay nada que migrar</h3>
+      <p style="color:var(--gray);font-size:.9rem">No se encontraron registros con nombres de grupos de tarde antiguos.</p>
+      <button class="btn btn-outline" onclick="renderCoordMenu()" style="margin-top:20px">← Volver</button>
+    </div>`;
+    return;
+  }
+
+  const rows = (arr, getGrupo) => arr.map(item => {
+    const old = getGrupo(item);
+    const arr2 = Array.isArray(old) ? old.filter(g=>oldNames.includes(g)) : [old];
+    return arr2.map(g => `<tr><td style="font-size:.82rem">${item.nombre||item.name||item.id}</td><td style="color:var(--red);font-size:.82rem">${g}</td><td style="color:var(--green);font-size:.82rem">→ ${map[g]}</td></tr>`).join('');
+  }).join('');
+
+  $app.innerHTML = `
+  <button class="btn btn-outline btn-sm" onclick="renderCoordMenu()" style="margin-bottom:16px">← Volver</button>
+  <h2 class="sec-title">🔧 Migración de Grupos de Tarde</h2>
+  <p class="sec-sub">Se encontraron <strong>${total} registros</strong> con nombres de grupos de tarde que deben actualizarse.</p>
+
+  <div style="background:var(--gold-light);border:2px solid var(--gold);border-radius:12px;padding:16px 20px;margin-bottom:20px;font-size:.87rem;color:#5a3e00">
+    ⚠️ <strong>Esta operación es irreversible.</strong> Se renombrarán todos los grupos de tarde en las colecciones <em>estudiantes, grupos, docentes, asistencia y revista de uniforme</em>. Los datos no se perderán.
+  </div>
+
+  ${[
+    { label:'👥 Estudiantes', data: afectados.estudiantes, fn: s => s.grupo, name: s => s.nombre },
+    { label:'🏫 Dirección de Grupos', data: afectados.grupos, fn: g => g.nombre, name: g => g.nombre },
+    { label:'👨‍🏫 Asignación de Docentes', data: afectados.docentes, fn: d => d.gruposAsignados.filter(g=>oldNames.includes(g)), name: d => d.name },
+    { label:'📝 Asistencia Estudiantil', data: afectados.asistencia, fn: r => r.grupo, name: r => r.grupo + ' · ' + r.fecha + (r.materia?' · '+r.materia:'') },
+    { label:'👔 Revista de Uniforme', data: afectados.revista, fn: r => r.grupo, name: r => r.grupo + ' · ' + r.fecha },
+  ].filter(s=>s.data.length>0).map(s=>`
+  <div class="card fade-up" style="margin-bottom:14px">
+    <h3 style="font-size:.9rem;font-weight:700;margin-bottom:10px">${s.label} — ${s.data.length} registro${s.data.length!==1?'s':''}</h3>
+    <div style="overflow-x:auto;max-height:200px;overflow-y:auto">
+    <table class="tbl" style="font-size:.8rem">
+      <thead><tr><th>Registro</th><th>Nombre actual</th><th>Nombre nuevo</th></tr></thead>
+      <tbody>
+        ${s.data.map(item=>{
+          const gs = Array.isArray(s.fn(item)) ? s.fn(item) : [s.fn(item)];
+          return gs.map(g=>`<tr>
+            <td>${s.name(item)}</td>
+            <td style="color:var(--red)">${g}</td>
+            <td style="color:var(--green);font-weight:600">→ ${map[g]}</td>
+          </tr>`).join('');
+        }).join('')}
+      </tbody>
+    </table>
+    </div>
+  </div>`).join('')}
+
+  <div class="actions" style="margin-top:8px">
+    <button class="btn btn-purple" style="background:var(--gold);border-color:var(--gold);color:#3a2800" onclick="ejecutarMigracionGrupos()">🔧 Ejecutar Migración</button>
+    <button class="btn btn-outline" onclick="renderCoordMenu()">Cancelar</button>
+  </div>
+  <div id="migLog" style="margin-top:16px"></div>`;
+}
+
+async function ejecutarMigracionGrupos() {
+  const btn = document.querySelector('[onclick="ejecutarMigracionGrupos()"]');
+  if(btn) { btn.disabled=true; btn.textContent='⏳ Migrando...'; }
+  const log = document.getElementById('migLog');
+  const map = buildMigrationMap();
+  const oldNames = Object.keys(map);
+  let ok=0, err=0;
+
+  function logMsg(msg, type='info') {
+    if(!log) return;
+    const color = type==='ok'?'var(--green)':type==='err'?'var(--red)':'var(--gray)';
+    log.innerHTML += `<div style="font-size:.8rem;color:${color};padding:2px 0">${msg}</div>`;
+    log.scrollTop = log.scrollHeight;
+  }
+
+  try {
+    // 1. ESTUDIANTES — actualizar campo grupo
+    const estudiantes = await fbGet('estudiantes');
+    for(const s of estudiantes) {
+      if(oldNames.includes(s.grupo)) {
+        try {
+          await fbUpdate('estudiantes', s.id, { grupo: map[s.grupo] });
+          logMsg(`✅ Estudiante: ${s.nombre} → ${map[s.grupo]}`, 'ok'); ok++;
+        } catch(e) { logMsg(`❌ Estudiante ${s.nombre}: ${e.message}`, 'err'); err++; }
+      }
+    }
+
+    // 2. GRUPOS — recrear doc con nuevo ID y nuevo nombre
+    const grupos = await fbGet('grupos');
+    for(const g of grupos) {
+      if(oldNames.includes(g.nombre)) {
+        const newNombre = map[g.nombre];
+        const newId = newNombre.replace(/\s+/g,'_').replace(/[°\.]/g,'');
+        try {
+          const { id: _id, ...data } = g;
+          await fbSet('grupos', newId, { ...data, nombre: newNombre });
+          await fbDelete('grupos', g.id);
+          logMsg(`✅ Grupo: ${g.nombre} → ${newNombre}`, 'ok'); ok++;
+        } catch(e) { logMsg(`❌ Grupo ${g.nombre}: ${e.message}`, 'err'); err++; }
+      }
+    }
+
+    // 3. DOCENTES — actualizar array gruposAsignados
+    const docentes = await fbGet('docentes');
+    for(const d of docentes) {
+      const ga = d.gruposAsignados || [];
+      if(ga.some(g => oldNames.includes(g))) {
+        const nuevos = ga.map(g => map[g] || g);
+        try {
+          await fbUpdate('docentes', d.id, { gruposAsignados: nuevos });
+          logMsg(`✅ Docente ${d.name}: grupos actualizados`, 'ok'); ok++;
+        } catch(e) { logMsg(`❌ Docente ${d.name}: ${e.message}`, 'err'); err++; }
+      }
+    }
+
+    // 4. ASISTENCIA ESTUDIANTIL — recrear doc con nuevo ID y campo grupo
+    const asistencia = await fbGet('asistencia_estudiantes');
+    for(const r of asistencia) {
+      if(oldNames.includes(r.grupo)) {
+        const newGrupo = map[r.grupo];
+        const matKey = (r.materia||'').replace(/[\s\.°\-]/g,'_');
+        const newId = newGrupo.replace(/[\s\.°\-]/g,'_') + '_' + r.fecha + (matKey ? '_'+matKey : '');
+        try {
+          const { id: _id, ...data } = r;
+          await fbSet('asistencia_estudiantes', newId, { ...data, grupo: newGrupo });
+          await fbDelete('asistencia_estudiantes', r.id);
+          logMsg(`✅ Asistencia ${r.grupo} ${r.fecha}${r.materia?' · '+r.materia:''} → ${newGrupo}`, 'ok'); ok++;
+        } catch(e) { logMsg(`❌ Asistencia ${r.grupo} ${r.fecha}: ${e.message}`, 'err'); err++; }
+      }
+    }
+
+    // 5. REVISTA DE UNIFORME — recrear doc con nuevo ID y campo grupo
+    const revista = await fbGet('revista_uniforme');
+    for(const r of revista) {
+      if(oldNames.includes(r.grupo)) {
+        const newGrupo = map[r.grupo];
+        const newId = 'unif_' + newGrupo.replace(/[\s\.°\-]/g,'_') + '_' + r.fecha;
+        try {
+          const { id: _id, ...data } = r;
+          await fbSet('revista_uniforme', newId, { ...data, grupo: newGrupo });
+          await fbDelete('revista_uniforme', r.id);
+          logMsg(`✅ Revista ${r.grupo} ${r.fecha} → ${newGrupo}`, 'ok'); ok++;
+        } catch(e) { logMsg(`❌ Revista ${r.grupo} ${r.fecha}: ${e.message}`, 'err'); err++; }
+      }
+    }
+
+    // Resumen final
+    const resumen = `<div style="margin-top:16px;padding:16px 20px;border-radius:12px;background:${err===0?'var(--green-light)':'var(--gold-light)'};border:2px solid ${err===0?'var(--green)':'var(--gold)'}">
+      <strong>${err===0?'✅ Migración completada exitosamente':'⚠️ Migración completada con errores'}</strong><br>
+      ${ok} operaciones exitosas · ${err} errores
+    </div>
+    <div class="actions" style="margin-top:12px">
+      <button class="btn btn-outline" onclick="renderCoordMenu()">← Volver al menú</button>
+    </div>`;
+    if(log) log.innerHTML += resumen;
+
+  } catch(e) {
+    if(log) log.innerHTML += `<div style="color:var(--red);font-weight:600;margin-top:10px">❌ Error inesperado: ${e.message}</div>`;
+  }
+}
 
 // ── SUBMENÚ: ADMINISTRAR ESTUDIANTES ──
 function renderAdminEstudiantes() {
@@ -2064,12 +2841,13 @@ async function renderCoordAsignacionClases() {
   $app.innerHTML = `
   <button class="btn btn-outline btn-sm" onclick="renderAdminDocentes()" style="margin-bottom:16px">← Volver</button>
   <h2 class="sec-title">📚 Asignación de Clases</h2>
-  <p class="sec-sub">Seleccione un docente para asignarle los grupos donde imparte clases</p>
+  <p class="sec-sub">Seleccione un docente para asignarle los grupos y asignaturas donde imparte clases</p>
   <div class="card fade-up">
     ${sorted.length===0
       ? `<div class="empty"><div class="ei">👨‍🏫</div><p>No hay docentes registrados.<br><small>Primero registre los docentes en "Gestionar Docentes".</small></p></div>`
       : sorted.map(t=>{
           const asignados = t.gruposAsignados || [];
+          const materias  = t.materias || [];
           return `
           <div class="teacher-item">
             <div class="teacher-avatar">${initials(t.name)}</div>
@@ -2077,11 +2855,15 @@ async function renderCoordAsignacionClases() {
               <div style="font-weight:600;font-size:.9rem">${t.name}</div>
               <div style="font-size:.76rem;color:var(--gray)">C.C. ${t.cedula} · J.${t.jornada}
                 ${asignados.length>0
-                  ? ` · <span style="color:var(--green);font-weight:600">${asignados.length} grupo${asignados.length!==1?'s':''} asignado${asignados.length!==1?'s':''}</span>`
-                  : ` · <span style="color:var(--red)">Sin grupos asignados</span>`}
+                  ? ` · <span style="color:var(--green);font-weight:600">${asignados.length} grupo${asignados.length!==1?'s':''}</span>`
+                  : ` · <span style="color:var(--red)">Sin grupos</span>`}
+                ${materias.length>0
+                  ? ` · <span style="color:var(--purple);font-weight:600">${materias.length} asignatura${materias.length!==1?'s':''}</span>`
+                  : ` · <span style="color:var(--gold-dark,#7a5a00)">Sin asignaturas</span>`}
               </div>
+              ${asignados.length>0 ? `<div style="font-size:.72rem;color:var(--gray);margin-top:2px">${asignados.slice(0,5).join(', ')}${asignados.length>5?' …':''}</div>` : ''}
             </div>
-            <button class="btn btn-purple btn-sm" onclick="renderAsignacionGruposDocente('${t.id}')">📝 Asignar grupos</button>
+            <button class="btn btn-purple btn-sm" onclick="renderAsignacionGruposDocente('${t.id}')">📝 Editar</button>
           </div>`;
         }).join('')}
   </div>`;
@@ -2094,30 +2876,68 @@ async function renderAsignacionGruposDocente(teacherId) {
   if(!t) { toast('❌ Docente no encontrado','err'); renderCoordAsignacionClases(); return; }
 
   const asignados = t.gruposAsignados || [];
+  const materiasAsig = t.materias || [];
 
   $app.innerHTML = `
   <button class="btn btn-outline btn-sm" onclick="renderCoordAsignacionClases()" style="margin-bottom:16px">← Volver</button>
-  <h2 class="sec-title">📚 Asignación de Grupos</h2>
+  <h2 class="sec-title">📚 Asignación de Grupos y Materias</h2>
   <p class="sec-sub">Docente: <strong>${t.name}</strong> · C.C. ${t.cedula} · J.${t.jornada}</p>
 
+  <div class="card fade-up" style="margin-bottom:16px">
+    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:14px;flex-wrap:wrap;gap:8px">
+      <h3 style="font-size:1rem;font-weight:700">📖 Asignaturas que imparte</h3>
+      <div style="display:flex;gap:8px">
+        <button class="btn btn-outline btn-sm" onclick="toggleAllMaterias(true)">✅ Todas</button>
+        <button class="btn btn-outline btn-sm" onclick="toggleAllMaterias(false)">⬜ Ninguna</button>
+      </div>
+    </div>
+    <div id="materiasCheckContainer" style="display:grid;grid-template-columns:repeat(auto-fill,minmax(240px,1fr));gap:8px;margin-bottom:12px">
+      ${TODAS_MATERIAS.map(m=>{
+        const mid = 'chkm_'+m.replace(/[^a-zA-Z0-9]/g,'_');
+        const checked = materiasAsig.includes(m);
+        return `<label style="display:flex;align-items:center;gap:8px;padding:8px 12px;border:1.5px solid ${checked?'var(--purple)':'var(--border)'};border-radius:10px;cursor:pointer;transition:all .2s;font-size:.85rem;background:${checked?'var(--purple-light)':'white'}"
+               onmouseover="this.style.borderColor='var(--purple)'" onmouseout="this.style.borderColor=document.getElementById('${mid}').checked?'var(--purple)':'var(--border)'">
+          <input type="checkbox" id="${mid}" value="${m}" ${checked?'checked':''}
+                 onchange="this.parentElement.style.borderColor=this.checked?'var(--purple)':'var(--border)';this.parentElement.style.background=this.checked?'var(--purple-light)':'white';updateAsigCounts()"
+                 style="accent-color:var(--purple);width:16px;height:16px;flex-shrink:0">
+          <span>${m}</span>
+        </label>`;
+      }).join('')}
+    </div>
+    <div id="matCount" style="font-size:.85rem;color:var(--purple);font-weight:600"></div>
+  </div>
+
   <div class="card fade-up">
-    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:18px;flex-wrap:wrap;gap:8px">
-      <h3 style="font-size:1rem;font-weight:700">Seleccione los grupos donde imparte clases</h3>
+    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:10px;flex-wrap:wrap;gap:8px">
+      <h3 style="font-size:1rem;font-weight:700">🏫 Grupos donde imparte clases</h3>
       <div style="display:flex;gap:8px">
         <button class="btn btn-outline btn-sm" onclick="toggleAllGroups(true)">✅ Todos</button>
         <button class="btn btn-outline btn-sm" onclick="toggleAllGroups(false)">⬜ Ninguno</button>
       </div>
     </div>
-    <div id="groupsCheckContainer" style="display:grid;grid-template-columns:repeat(auto-fill,minmax(220px,1fr));gap:8px;margin-bottom:20px">
-      ${ALL_GROUPS.map(g=>`
-      <label style="display:flex;align-items:center;gap:8px;padding:8px 12px;border:1.5px solid var(--border);border-radius:10px;cursor:pointer;transition:all .2s;font-size:.85rem"
-             onmouseover="this.style.borderColor='var(--purple)'" onmouseout="this.style.borderColor=document.getElementById('chkg_${g.replace(/[^a-zA-Z0-9]/g,'_')}').checked?'var(--purple)':'var(--border)'">
-        <input type="checkbox" id="chkg_${g.replace(/[^a-zA-Z0-9]/g,'_')}"
-               value="${g}" ${asignados.includes(g)?'checked':''}
-               onchange="this.parentElement.style.borderColor=this.checked?'var(--purple)':'var(--border)';this.parentElement.style.background=this.checked?'var(--purple-light)':'white'"
-               style="accent-color:var(--purple);width:16px;height:16px;flex-shrink:0">
-        <span>${g}</span>
-      </label>`).join('')}
+    <div id="asigSedeFilter" style="margin-bottom:12px">
+      <div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center">
+        <span style="font-size:.8rem;font-weight:600;color:var(--gray)">🏫 Filtrar:</span>
+        <button class="btn btn-purple btn-sm" id="sfbtn_ALL" onclick="filtrarGruposAsignacion('ALL')">Todas las sedes</button>
+        ${SEDES.map(s=>`<button class="btn btn-outline btn-sm" id="sfbtn_${s.id}" onclick="filtrarGruposAsignacion('${s.id}')">${s.nombre.replace('Sede ','')}</button>`).join('')}
+      </div>
+    </div>
+    <div id="groupsCheckContainer" style="display:grid;grid-template-columns:repeat(auto-fill,minmax(220px,1fr));gap:8px;margin-bottom:14px">
+      ${ALL_GROUPS.map(g=>{
+        const gid = 'chkg_'+g.replace(/[^a-zA-Z0-9]/g,'_');
+        const checked = asignados.includes(g);
+        const sedeId = SEDES.find(s => s.id !== 'ABC' && g.includes(`[${s.id}]`))?.id || 'ABC';
+        const sedeTag = sedeId !== 'ABC'
+          ? `<span style="font-size:.7rem;background:var(--gold-light);color:#7a5a00;border-radius:4px;padding:1px 5px;margin-left:4px">${sedeId}</span>`
+          : '';
+        return `<label data-sede="${sedeId}" style="display:flex;align-items:center;gap:8px;padding:8px 12px;border:1.5px solid ${checked?'var(--purple)':'var(--border)'};border-radius:10px;cursor:pointer;transition:all .2s;font-size:.82rem;background:${checked?'var(--purple-light)':'white'}"
+               onmouseover="this.style.borderColor='var(--purple)'" onmouseout="this.style.borderColor=document.getElementById('${gid}').checked?'var(--purple)':'var(--border)'">
+          <input type="checkbox" id="${gid}" value="${g}" ${checked?'checked':''}
+                 onchange="this.parentElement.style.borderColor=this.checked?'var(--purple)':'var(--border)';this.parentElement.style.background=this.checked?'var(--purple-light)':'white';updateAsigCounts()"
+                 style="accent-color:var(--purple);width:16px;height:16px;flex-shrink:0">
+          <span>${g.replace(/ \[[A-Z]+\]/,'')}${sedeTag}</span>
+        </label>`;
+      }).join('')}
     </div>
     <div id="asigCount" style="font-size:.85rem;color:var(--purple);font-weight:600;margin-bottom:14px"></div>
     <div class="actions">
@@ -2126,23 +2946,16 @@ async function renderAsignacionGruposDocente(teacherId) {
     </div>
   </div>`;
 
-  // Apply initial styles and count
-  ALL_GROUPS.forEach(g=>{
-    const id = 'chkg_' + g.replace(/[^a-zA-Z0-9]/g,'_');
-    const chk = document.getElementById(id);
-    if(chk && chk.checked) {
-      chk.parentElement.style.borderColor='var(--purple)';
-      chk.parentElement.style.background='var(--purple-light)';
-    }
-    chk?.addEventListener('change', updateAsigCount);
-  });
-  updateAsigCount();
+  updateAsigCounts();
 }
 
-function updateAsigCount() {
-  const count = document.querySelectorAll('#groupsCheckContainer input[type=checkbox]:checked').length;
-  const el = document.getElementById('asigCount');
-  if(el) el.textContent = `${count} grupo${count!==1?'s':''} seleccionado${count!==1?'s':''}`;
+function updateAsigCounts() {
+  const cg = document.querySelectorAll('#groupsCheckContainer input[type=checkbox]:checked').length;
+  const cm = document.querySelectorAll('#materiasCheckContainer input[type=checkbox]:checked').length;
+  const eg = document.getElementById('asigCount');
+  const em = document.getElementById('matCount');
+  if(eg) eg.textContent = `${cg} grupo${cg!==1?'s':''} seleccionado${cg!==1?'s':''}`;
+  if(em) em.textContent = `${cm} asignatura${cm!==1?'s':''} seleccionada${cm!==1?'s':''}`;
 }
 
 function toggleAllGroups(check) {
@@ -2151,14 +2964,37 @@ function toggleAllGroups(check) {
     chk.parentElement.style.borderColor = check ? 'var(--purple)' : 'var(--border)';
     chk.parentElement.style.background = check ? 'var(--purple-light)' : 'white';
   });
-  updateAsigCount();
+  updateAsigCounts();
+}
+
+function toggleAllMaterias(check) {
+  document.querySelectorAll('#materiasCheckContainer input[type=checkbox]').forEach(chk=>{
+    chk.checked = check;
+    chk.parentElement.style.borderColor = check ? 'var(--purple)' : 'var(--border)';
+    chk.parentElement.style.background = check ? 'var(--purple-light)' : 'white';
+  });
+  updateAsigCounts();
+}
+
+function filtrarGruposAsignacion(sedeId) {
+  document.querySelectorAll('#groupsCheckContainer label[data-sede]').forEach(lbl => {
+    lbl.style.display = (sedeId === 'ALL' || lbl.dataset.sede === sedeId) ? '' : 'none';
+  });
+  // Actualizar botones activos
+  document.querySelectorAll('#asigSedeFilter button').forEach(btn => {
+    const isActive = btn.id === 'sfbtn_' + sedeId;
+    btn.className = 'btn btn-sm ' + (isActive ? 'btn-purple' : 'btn-outline');
+  });
+  updateAsigCounts();
 }
 
 async function saveAsignacionClases(teacherId) {
-  const checks = document.querySelectorAll('#groupsCheckContainer input[type=checkbox]:checked');
-  const gruposAsignados = Array.from(checks).map(c=>c.value);
-  await fbUpdate('docentes', teacherId, { gruposAsignados });
-  toast(`✅ ${gruposAsignados.length} grupos asignados correctamente`, 'ok');
+  const gChecks = document.querySelectorAll('#groupsCheckContainer input[type=checkbox]:checked');
+  const mChecks = document.querySelectorAll('#materiasCheckContainer input[type=checkbox]:checked');
+  const gruposAsignados = Array.from(gChecks).map(c=>c.value);
+  const materias = Array.from(mChecks).map(c=>c.value);
+  await fbUpdate('docentes', teacherId, { gruposAsignados, materias });
+  toast(`✅ ${gruposAsignados.length} grupo${gruposAsignados.length!==1?'s':''} y ${materias.length} asignatura${materias.length!==1?'s':''} guardados`, 'ok');
   renderCoordAsignacionClases();
 }
 
@@ -3079,17 +3915,26 @@ async function renderAttReportsV2(origin='coord') {
   const sorted = records.sort((a,b)=>(b.fecha||'').localeCompare(a.fecha||''));
   window._allAttRec = sorted;
   const groups=[...new Set(sorted.map(r=>r.grupo))].sort();
+  const materias=[...new Set(sorted.map(r=>r.materia).filter(Boolean))].sort();
 
+  window._filtroSede = 'ALL';
   $app.innerHTML = `
   <button class="btn btn-outline btn-sm" onclick="renderAdminEstudiantesReportes()" style="margin-bottom:16px">← Volver</button>
-  <div style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:12px;margin-bottom:6px">
+  <div style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:12px;margin-bottom:10px">
     <div><h2 class="sec-title">📅 Asistencia Estudiantil — Histórico</h2><p class="sec-sub">${sorted.length} registros</p></div>
     <button class="btn btn-outline btn-sm" onclick="window.print()">🖨️ Imprimir</button>
   </div>
+  <div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center;margin-bottom:10px">
+    <span style="font-size:.8rem;font-weight:600;color:var(--gray)">🏫 Sede:</span>
+    <button class="btn btn-purple btn-sm" id="rsf_ALL" onclick="filtroSedeReporte('ALL')">Todas</button>
+    ${SEDES.map(s=>`<button class="btn btn-outline btn-sm" id="rsf_${s.id}" onclick="filtroSedeReporte('${s.id}')">${s.nombre.replace('Sede ','')}</button>`).join('')}
+  </div>
   <div class="card" style="margin-bottom:14px">
     <div style="display:flex;gap:12px;flex-wrap:wrap;align-items:flex-end">
-      <div class="form-group" style="min-width:200px"><label>Filtrar por Grupo</label>
+      <div class="form-group" style="min-width:180px"><label>Filtrar por Grupo</label>
         <select id="aGrpF" onchange="filterAttV2()"><option value="">Todos los grupos</option>${groups.map(g=>`<option>${g}</option>`).join('')}</select></div>
+      <div class="form-group" style="min-width:180px"><label>Filtrar por Asignatura</label>
+        <select id="aMatF" onchange="filterAttV2()"><option value="">Todas las asignaturas</option>${materias.map(m=>`<option>${m}</option>`).join('')}</select></div>
       <div class="form-group"><label>Fecha Inicio</label><input type="date" id="aDateF" onchange="filterAttV2()"></div>
       <div class="form-group"><label>Fecha Fin</label><input type="date" id="aDateT" onchange="filterAttV2()"></div>
     </div>
@@ -3097,12 +3942,28 @@ async function renderAttReportsV2(origin='coord') {
   <div id="attTblWrap" class="card fade-up">${buildAttTable(sorted)}</div>`;
 }
 
+function filtroSedeReporte(sedeId) {
+  window._filtroSede = sedeId;
+  document.querySelectorAll('[id^="rsf_"]').forEach(btn => {
+    const isActive = btn.id === 'rsf_' + sedeId;
+    btn.className = 'btn btn-sm ' + (isActive ? 'btn-purple' : 'btn-outline');
+  });
+  filterAttV2();
+}
+
 function filterAttV2() {
   const g=document.getElementById('aGrpF')?.value||'';
+  const m=document.getElementById('aMatF')?.value||'';
   const f=document.getElementById('aDateF')?.value||'';
   const t=document.getElementById('aDateT')?.value||'';
+  const sede = window._filtroSede || 'ALL';
   let data=window._allAttRec||[];
+  if(sede !== 'ALL') {
+    if(sede === 'ABC') data = data.filter(r => !SEDES.some(s => s.id !== 'ABC' && (r.grupo||'').includes(`[${s.id}]`)));
+    else               data = data.filter(r => (r.grupo||'').includes(`[${sede}]`));
+  }
   if(g) data=data.filter(r=>r.grupo===g);
+  if(m) data=data.filter(r=>r.materia===m);
   if(f) data=data.filter(r=>r.fecha>=f);
   if(t) data=data.filter(r=>r.fecha<=t);
   document.getElementById('attTblWrap').innerHTML=buildAttTable(data);
@@ -3113,18 +3974,21 @@ function buildAttTable(records) {
   const tAbs=records.reduce((s,r)=>s+(r.ausentes?.length||0),0);
   const tPres=records.reduce((s,r)=>s+r.presentes,0);
   const stuMap = window._stuMap||{};
+  const hasMaterias = records.some(r=>r.materia);
   return `<div class="stats" style="margin-bottom:14px">
-    <div class="stat-card"><div class="num">${records.length}</div><div class="lbl">Días</div></div>
+    <div class="stat-card"><div class="num">${records.length}</div><div class="lbl">Sesiones</div></div>
     <div class="stat-card green"><div class="num">${tPres}</div><div class="lbl">Presencias</div></div>
     <div class="stat-card red"><div class="num">${tAbs}</div><div class="lbl">Ausencias</div></div>
   </div>
   <div style="overflow-x:auto"><table class="tbl">
-    <thead><tr><th>Fecha</th><th>Grupo</th><th>Docente</th><th>Presentes</th><th>Ausentes</th><th>Total</th><th>%</th><th>Estudiantes Ausentes</th></tr></thead>
+    <thead><tr><th>Fecha</th><th>Grupo</th>${hasMaterias?'<th>Asignatura</th>':''}<th>Docente</th><th>Presentes</th><th>Ausentes</th><th>Total</th><th>%</th><th>Estudiantes Ausentes</th></tr></thead>
     <tbody>${records.map(r=>{
       const pct=r.totalEstudiantes>0?Math.round(r.presentes/r.totalEstudiantes*100):0;
       const ausentesNombres=(r.ausentes||[]).map(id=>stuMap[id]||id).join(', ');
       return `<tr>
-        <td>${fmtDate(r.fecha)}</td><td><strong>${r.grupo}</strong></td><td>${r.docenteNombre||'—'}</td>
+        <td>${fmtDate(r.fecha)}</td><td><strong>${r.grupo}</strong></td>
+        ${hasMaterias?`<td style="color:var(--purple);font-size:.82rem;font-weight:600">${r.materia||'<span style="color:var(--gray)">—</span>'}</td>`:''}
+        <td>${r.docenteNombre||'—'}</td>
         <td style="color:var(--green);font-weight:700">${r.presentes}</td>
         <td style="color:var(--red);font-weight:700">${r.ausentes?.length||0}</td>
         <td>${r.totalEstudiantes}</td>
@@ -3186,15 +4050,23 @@ async function saveEditTeacher(id) {
 }
 
 // ── COORD STUDENT ADMIN ──
-async function renderCoordStudentAdmin() {
+async function renderCoordStudentAdmin(sedeId) {
+  sedeId = sedeId || S.currentSede || 'ABC';
+  S.currentSede = sedeId;
   $app.innerHTML='<div class="loading"><div class="spin-big"></div><p>Cargando estudiantes...</p></div>';
   const students = await fbGet('estudiantes');
-  const sorted = students.sort((a,b)=>(a.grupo||'').localeCompare(b.grupo||'')||a.nombre.localeCompare(b.nombre));
+  const sedeGroups = getGroupsBySede(sedeId);
+  const sedeNombre = SEDES.find(s=>s.id===sedeId)?.nombre || sedeId;
+  const filtered = students.filter(s=>sedeGroups.includes(s.grupo)||(!s.grupo&&sedeId==='ABC'));
+  const sorted = filtered.sort((a,b)=>(a.grupo||'').localeCompare(b.grupo||'')||a.nombre.localeCompare(b.nombre));
 
   $app.innerHTML = `
-  <button class="btn btn-outline btn-sm" onclick="renderCoordMenu()" style="margin-bottom:16px">← Volver</button>
+  <button class="btn btn-outline btn-sm" onclick="renderAdminEstudiantes()" style="margin-bottom:16px">← Volver</button>
   <h2 class="sec-title">👥 Administrar Estudiantes</h2>
-  <p class="sec-sub">${sorted.length} estudiantes registrados en total</p>
+  <div style="display:flex;gap:8px;margin-bottom:16px;flex-wrap:wrap">
+    ${SEDES.map(s=>`<button class="btn ${s.id===sedeId?'btn-purple':'btn-outline'} btn-sm" onclick="renderCoordStudentAdmin('${s.id}')">🏫 ${s.nombre}</button>`).join('')}
+  </div>
+  <p class="sec-sub">${sorted.length} estudiantes · ${sedeNombre}</p>
 
   <div class="card fade-up">
     <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:14px;flex-wrap:wrap;gap:8px">
@@ -3206,7 +4078,7 @@ async function renderCoordStudentAdmin() {
       <div class="form-group"><label>Grupo</label>
         <select id="ns_group">
           <option value="">Seleccionar...</option>
-          ${ALL_GROUPS.map(g=>`<option>${g}</option>`).join('')}
+          ${sedeGroups.map(g=>`<option>${g}</option>`).join('')}
         </select>
       </div>
       <div class="form-group"><label>Número de Documento</label><input type="text" id="ns_doc" placeholder="TI, RC, CE..."></div>
@@ -3225,7 +4097,7 @@ async function renderCoordStudentAdmin() {
         <div class="form-group" style="min-width:200px;margin:0">
           <select id="filterGroup" onchange="filterStudentList()" style="font-size:.82rem">
           <option value="">Todos los grupos</option>
-          ${ALL_GROUPS.map(g=>`<option>${g}</option>`).join('')}
+          ${sedeGroups.map(g=>`<option>${g}</option>`).join('')}
           </select>
         </div>
       </div>
@@ -4638,18 +5510,59 @@ function obsRenderFicha(obs, stu) {
 
   <!-- PERIODOS -->
   <div class="card fade-up">
-    <h3 style="font-size:.95rem;font-weight:700;margin-bottom:12px;color:var(--purple)">📅 Periodos Registrados</h3>
+    <h3 style="font-size:.95rem;font-weight:700;margin-bottom:8px;color:var(--purple)">📅 Periodos Registrados</h3>
+    ${!obsBaseCompleta(obs) ? `
+    <div style="margin-bottom:12px;padding:10px 14px;background:#fff4f4;border:1.5px solid var(--red);border-radius:10px;font-size:.8rem;color:var(--red)">
+      🔒 <strong>Datos incompletos.</strong> Para habilitar los períodos debe primero completar y guardar: Datos Básicos, Desempeño, Dificultades, Preferencias e Información Familiar usando el botón <em>✏️ Editar Datos</em>.
+    </div>` : ''}
     <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(140px,1fr));gap:10px">
       ${[1,2,3,4].map(p=>{
-        const tiene = obs.periodos?.[p];
-        return `<div class="card" style="text-align:center;cursor:pointer;border:2px solid ${tiene?'var(--purple)':'var(--border)'}" onclick="obsAbrirPeriodo('${obs.id}',${p})">
-          <div style="font-size:1.5rem;margin-bottom:4px">${tiene?'📝':'📄'}</div>
+        const baseOk   = obsBaseCompleta(obs);
+        const prevOk   = p === 1 ? true : obsPeriodoCompleto(obs, p-1);
+        const habilitado = baseOk && prevOk;
+        const completo   = obsPeriodoCompleto(obs, p);
+        const tieneData  = !!obs.periodos?.[p];
+
+        const icon  = completo ? '✅' : tieneData ? '📝' : habilitado ? '📄' : '🔒';
+        const label = completo ? 'Completo' : tieneData ? 'En progreso' : habilitado ? 'Sin datos' : 'Bloqueado';
+        const borderCol = completo ? 'var(--green)' : tieneData ? 'var(--purple)' : habilitado ? 'var(--border)' : '#ddd';
+        const bgCol     = habilitado ? 'white' : '#f7f7f7';
+        const textCol   = habilitado ? 'inherit' : 'var(--gray)';
+        const cursor    = habilitado ? 'pointer' : 'not-allowed';
+        const clickFn   = habilitado ? `onclick="obsAbrirPeriodo('${obs.id}',${p})"` : `onclick="toast('⚠️ ${p===1?'Complete primero los datos del estudiante':'Complete y guarde el Periodo '+(p-1)+' antes de continuar'}','err')"`;
+
+        return `<div class="card" style="text-align:center;cursor:${cursor};border:2px solid ${borderCol};background:${bgCol};color:${textCol}" ${clickFn}>
+          <div style="font-size:1.5rem;margin-bottom:4px">${icon}</div>
           <div style="font-weight:700;font-size:.9rem">Periodo ${p}</div>
-          <div style="font-size:.75rem;color:var(--gray);margin-top:2px">${tiene?'Registrado':'Sin datos'}</div>
+          <div style="font-size:.72rem;color:${completo?'var(--green)':habilitado?'var(--gray)':'#bbb'};margin-top:2px">${label}</div>
+          ${!habilitado?`<div style="font-size:.68rem;color:#ccc;margin-top:2px">${p===1?'Faltan datos base':'Periodo '+(p-1)+' pendiente'}</div>`:''}
         </div>`;
       }).join('')}
     </div>
   </div>`;
+}
+
+function obsVerPeriodos(docId) {
+  obsRenderFicha(window._obsActual, window._obsStuActual);
+}
+
+// ── Validaciones de prerequisitos ──
+function obsBaseCompleta(obs) {
+  const d = obs.datosBasicos||{};
+  const tieneDoc      = !!d.documento;
+  const tieneFamilia  = (obs.familias||[]).some(f => f.nombre);
+  const tieneDesempen = Object.keys(obs.desempeno||{}).length > 0;
+  const tieneDificu   = Object.keys(obs.dificultades||{}).length > 0;
+  const tienePref     = !!(obs.preferencias?.deporte || obs.preferencias?.musica || obs.preferencias?.profesion);
+  return (tieneDoc && tieneFamilia && tieneDesempen && tieneDificu && tienePref) || !!obs.updatedAt;
+}
+
+function obsPeriodoCompleto(obs, p) {
+  const per = obs.periodos?.[p];
+  if(!per) return false;
+  const tieneAnotaciones  = (per.anotaciones||[]).length >= 2;
+  const tieneSeguimiento  = Object.keys(per.seguimiento||{}).length > 0;
+  return tieneAnotaciones && tieneSeguimiento;
 }
 
 async function obsSubirFoto(input, docId) {
@@ -4943,6 +5856,20 @@ async function obsGuardarDatos(docId) {
 // ── PERIODOS ──
 function obsAbrirPeriodo(docId, periodo) {
   const obs = window._obsActual;
+
+  // Prerequisito 1: datos base completos
+  if(!obsBaseCompleta(obs)) {
+    toast('⚠️ Complete primero los datos del estudiante (Editar Datos) antes de registrar períodos','err');
+    obsRenderFicha(obs, window._obsStuActual);
+    return;
+  }
+  // Prerequisito 2: período anterior completo
+  if(periodo > 1 && !obsPeriodoCompleto(obs, periodo-1)) {
+    toast(`⚠️ El Periodo ${periodo-1} debe estar completo (seguimiento + mínimo 2 anotaciones guardadas) antes de continuar`,'err');
+    obsRenderFicha(obs, window._obsStuActual);
+    return;
+  }
+
   const origin = window._obsOrigin||'coordinator';
   const canEdit = origin !== 'secretary';
   const per = obs.periodos?.[periodo]||{ seguimiento:{}, anotaciones:[] };
@@ -5020,18 +5947,25 @@ function obsAbrirPeriodo(docId, periodo) {
     `:''}
 
     ${(per.anotaciones||[]).length>0?`
-    <h4 style="font-size:.85rem;font-weight:700;color:var(--purple);margin:16px 0 12px;text-transform:uppercase">📋 Anotaciones Registradas</h4>
-    ${(per.anotaciones||[]).map((a,i)=>`
-    <div class="card" style="margin-bottom:8px;border-left:3px solid var(--purple)">
-      <div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:6px">
-        <span style="font-weight:700;font-size:.85rem;color:var(--purple)">${a.tipo}</span>
-        <span style="font-size:.75rem;color:var(--gray)">${(a.fecha||'').slice(0,10)} · ${a.docente||''}</span>
+    <h4 style="font-size:.85rem;font-weight:700;color:var(--purple);margin:16px 0 12px;text-transform:uppercase">📋 Anotaciones Registradas (${(per.anotaciones||[]).length})</h4>
+    ${(per.anotaciones||[]).map((a,i)=>{
+      const borderCol = a.tipo==='FELICITACIÓN'?'var(--green)':a.tipo==='LLAMADO DE ATENCIÓN'?'var(--red)':a.tipo==='RECOMENDACIÓN'?'var(--gold)':'var(--purple)';
+      return `
+    <div class="card" style="margin-bottom:10px;border-left:4px solid ${borderCol}">
+      <div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:6px;gap:8px;flex-wrap:wrap">
+        <span style="font-weight:700;font-size:.85rem;color:${borderCol}">${a.tipo}</span>
+        <div style="display:flex;align-items:center;gap:6px;flex-wrap:wrap">
+          <span style="font-size:.74rem;color:var(--gray)">${(a.fecha||'').slice(0,10)}${a.docente?' · '+a.docente:''}</span>
+          ${canEdit?`
+          <button class="btn btn-xs" style="padding:2px 8px;font-size:.72rem;border-color:var(--blue);color:var(--blue)" onclick="obsEditarAnotacion('${docId}',${periodo},${i})" title="Editar anotación">✏️ Editar</button>
+          <button class="btn btn-xs btn-red" style="padding:2px 8px;font-size:.72rem" onclick="obsEliminarAnotacion('${docId}',${periodo},${i})" title="Eliminar anotación">🗑️</button>`:''}
+        </div>
       </div>
-      <p style="font-size:.85rem;margin-bottom:4px">${a.anotacion}</p>
-      ${a.compEstudiante?`<p style="font-size:.8rem;color:var(--gray)">Est: ${a.compEstudiante}</p>`:''}
-      ${a.compAcudiente?`<p style="font-size:.8rem;color:var(--gray)">Acu: ${a.compAcudiente}</p>`:''}
-      ${a.compInstitucion?`<p style="font-size:.8rem;color:var(--gray)">Inst: ${a.compInstitucion}</p>`:''}
-    </div>`).join('')}
+      <p style="font-size:.85rem;margin-bottom:6px;line-height:1.5">${a.anotacion}</p>
+      ${a.compEstudiante?`<p style="font-size:.78rem;margin-bottom:2px"><strong style="color:var(--purple-dark)">Est:</strong> ${a.compEstudiante}</p>`:''}
+      ${a.compAcudiente?`<p style="font-size:.78rem;margin-bottom:2px"><strong style="color:var(--purple-dark)">Acu:</strong> ${a.compAcudiente}</p>`:''}
+      ${a.compInstitucion?`<p style="font-size:.78rem"><strong style="color:var(--purple-dark)">Inst:</strong> ${a.compInstitucion}</p>`:''}
+    </div>`;}).join('')}
     `:''}
 
     ${canEdit?`
@@ -5064,9 +5998,9 @@ async function obsAgregarAnotacion(docId, periodo) {
   const nuevaAnotacion = {
     tipo,
     anotacion,
-    compEstudiante: document.getElementById('per_comp_est')?.value||'',
-    compAcudiente: document.getElementById('per_comp_acu')?.value||'',
-    compInstitucion: document.getElementById('per_comp_inst')?.value||'',
+    compEstudiante: compEst,
+    compAcudiente:  compAcu,
+    compInstitucion: compInst,
     docente: S.user?.name||S.user?.cedula||'Coordinador',
     fecha: new Date().toISOString()
   };
@@ -5078,6 +6012,160 @@ async function obsAgregarAnotacion(docId, periodo) {
   await fbSet('observadores', docId, updated);
   window._obsActual = updated;
   toast('✅ Anotación agregada','ok');
+  obsAbrirPeriodo(docId, periodo);
+}
+
+function obsEditarAnotacion(docId, periodo, idx) {
+  const obs = window._obsActual;
+  const per = obs.periodos?.[periodo]||{ seguimiento:{}, anotaciones:[] };
+  const a = (per.anotaciones||[])[idx];
+  if(!a) return;
+  const $r = document.getElementById('obsResult');
+  const TIPOS = ['FELICITACIÓN','RECOMENDACIÓN','LLAMADO DE ATENCIÓN','OBSERVACIÓN'];
+  $r.innerHTML = `
+  <div class="card fade-up">
+    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:16px;flex-wrap:wrap;gap:8px">
+      <h3 style="font-family:'Playfair Display',serif;font-size:1.05rem">✏️ Editar Anotación — ${obs.nombreEstudiante}</h3>
+      <button class="btn btn-outline btn-sm" onclick="obsAbrirPeriodo('${docId}',${periodo})">← Volver al Periodo ${periodo}</button>
+    </div>
+    <div class="form-row">
+      <div class="form-group" style="min-width:200px">
+        <label>Tipo de Anotación</label>
+        <select id="ea_tipo" onchange="obsActualizarListasEdicion()">
+          ${TIPOS.map(t=>`<option ${a.tipo===t?'selected':''}>${t}</option>`).join('')}
+        </select>
+      </div>
+      <div class="form-group" style="flex:1">
+        <label style="font-size:.75rem;color:var(--gray)">Registrada: ${(a.fecha||'').slice(0,10)}${a.docente?' · '+a.docente:''}</label>
+      </div>
+    </div>
+    <div class="form-group">
+      <label>Anotación</label>
+      <select id="ea_anotacion_sel" onchange="obsOnChangeSelect('ea_anotacion_sel','ea_anotacion_txt')">
+        <option value="">— Seleccione tipo primero —</option>
+      </select>
+      <textarea id="ea_anotacion_txt" rows="3" placeholder="Escriba su anotación personalizada..." style="margin-top:6px;display:none"></textarea>
+    </div>
+    <div class="form-group">
+      <label>Compromiso del Estudiante</label>
+      <select id="ea_comp_est_sel" onchange="obsOnChangeSelect('ea_comp_est_sel','ea_comp_est_txt')">
+        <option value="">— Seleccione tipo primero —</option>
+      </select>
+      <textarea id="ea_comp_est_txt" rows="2" placeholder="Escriba el compromiso personalizado..." style="margin-top:6px;display:none"></textarea>
+    </div>
+    <div class="form-group">
+      <label>Compromiso del Acudiente</label>
+      <select id="ea_comp_acu_sel" onchange="obsOnChangeSelect('ea_comp_acu_sel','ea_comp_acu_txt')">
+        <option value="">— Seleccione tipo primero —</option>
+      </select>
+      <textarea id="ea_comp_acu_txt" rows="2" placeholder="Escriba el compromiso personalizado..." style="margin-top:6px;display:none"></textarea>
+    </div>
+    <div class="form-group">
+      <label>Compromiso de la Institución</label>
+      <select id="ea_comp_inst_sel" onchange="obsOnChangeSelect('ea_comp_inst_sel','ea_comp_inst_txt')">
+        <option value="">— Seleccione tipo primero —</option>
+      </select>
+      <textarea id="ea_comp_inst_txt" rows="2" placeholder="Escriba el compromiso personalizado..." style="margin-top:6px;display:none"></textarea>
+    </div>
+    <div class="actions" style="justify-content:flex-end;margin-top:8px">
+      <button class="btn btn-outline" onclick="obsAbrirPeriodo('${docId}',${periodo})">Cancelar</button>
+      <button class="btn btn-purple" onclick="obsGuardarEdicionAnotacion('${docId}',${periodo},${idx})">💾 Guardar Cambios</button>
+    </div>
+  </div>`;
+  // Poblar listas y pre-seleccionar valores existentes
+  obsActualizarListasEdicion(a);
+}
+
+function obsActualizarListasEdicion(preselect) {
+  const tipo = document.getElementById('ea_tipo')?.value;
+  const data = OBS_ANOTACIONES[tipo]||null;
+  const selIds = ['ea_anotacion_sel','ea_comp_est_sel','ea_comp_acu_sel','ea_comp_inst_sel'];
+  const keys   = ['anotaciones','compEstudiante','compAcudiente','compInstitucion'];
+  const preVals = preselect
+    ? [preselect.anotacion, preselect.compEstudiante, preselect.compAcudiente, preselect.compInstitucion]
+    : [null, null, null, null];
+
+  selIds.forEach((selId, i) => {
+    const sel = document.getElementById(selId);
+    if(!sel) return;
+    const txtId = selId.replace('_sel','_txt');
+    const txt = document.getElementById(txtId);
+    if(!data) {
+      sel.innerHTML = '<option value="">— Seleccione tipo primero —</option>';
+      if(txt) { txt.style.display='none'; txt.value=''; }
+      return;
+    }
+    const opts = data[keys[i]]||[];
+    sel.innerHTML = '<option value="">— Seleccione una opción —</option>' +
+      opts.map((o,j)=>`<option value="${j}">${o.length>80?o.slice(0,80)+'…':o}</option>`).join('') +
+      '<option value="otra">✏️ Otra (escribir manualmente)</option>';
+    if(!txt) return;
+    if(preVals[i]) {
+      const matchIdx = opts.findIndex(o => o === preVals[i]);
+      if(matchIdx >= 0) {
+        sel.value = String(matchIdx);
+        txt.style.display = 'none';
+      } else {
+        sel.value = 'otra';
+        txt.style.display = 'block';
+        txt.value = preVals[i];
+      }
+    } else {
+      sel.value = '';
+      txt.style.display = 'none';
+    }
+  });
+}
+
+function obsGetEdicionValue(selId, txtId, key) {
+  const tipo = document.getElementById('ea_tipo')?.value;
+  const val  = document.getElementById(selId)?.value;
+  if(!val) return '';
+  if(val==='otra') return document.getElementById(txtId)?.value?.trim()||'';
+  const data = OBS_ANOTACIONES[tipo]||{};
+  const opts = data[key]||[];
+  return opts[parseInt(val)]||'';
+}
+
+async function obsGuardarEdicionAnotacion(docId, periodo, idx) {
+  const tipo      = document.getElementById('ea_tipo')?.value.trim();
+  const anotacion = obsGetEdicionValue('ea_anotacion_sel','ea_anotacion_txt','anotaciones');
+  const compEst   = obsGetEdicionValue('ea_comp_est_sel','ea_comp_est_txt','compEstudiante');
+  const compAcu   = obsGetEdicionValue('ea_comp_acu_sel','ea_comp_acu_txt','compAcudiente');
+  const compInst  = obsGetEdicionValue('ea_comp_inst_sel','ea_comp_inst_txt','compInstitucion');
+  if(!tipo||!anotacion) { toast('⚠️ El tipo y la anotación son obligatorios','err'); return; }
+
+  const obs = window._obsActual;
+  const per = obs.periodos?.[periodo]||{ seguimiento:{}, anotaciones:[] };
+  const anotaciones = [...(per.anotaciones||[])];
+  anotaciones[idx] = {
+    ...anotaciones[idx],
+    tipo,
+    anotacion,
+    compEstudiante: compEst,
+    compAcudiente:  compAcu,
+    compInstitucion: compInst,
+    editadoEn: new Date().toISOString(),
+    editadoPor: S.user?.name||S.user?.cedula||'Coordinador'
+  };
+  const updated = { ...obs, periodos: { ...obs.periodos, [periodo]: { ...per, anotaciones } } };
+  await fbSet('observadores', docId, updated);
+  window._obsActual = updated;
+  toast('✅ Anotación actualizada','ok');
+  obsAbrirPeriodo(docId, periodo);
+}
+
+async function obsEliminarAnotacion(docId, periodo, idx) {
+  const obs = window._obsActual;
+  const per = obs.periodos?.[periodo]||{ seguimiento:{}, anotaciones:[] };
+  const a = (per.anotaciones||[])[idx];
+  if(!a) return;
+  if(!confirm(`¿Eliminar esta anotación?\n\nTipo: ${a.tipo}\n"${(a.anotacion||'').slice(0,80)}..."\n\nEsta acción no se puede deshacer.`)) return;
+  const anotaciones = (per.anotaciones||[]).filter((_,i)=>i!==idx);
+  const updated = { ...obs, periodos: { ...obs.periodos, [periodo]: { ...per, anotaciones } } };
+  await fbSet('observadores', docId, updated);
+  window._obsActual = updated;
+  toast('✅ Anotación eliminada','ok');
   obsAbrirPeriodo(docId, periodo);
 }
 
@@ -5108,8 +6196,7 @@ async function obsGuardarPeriodo(docId, periodo) {
 
   const seguimiento = { ...(per.seguimiento||{}), ...(window._segTemp||{}) };
 
-
-  const updated = { ...obs, periodos: { ...obs.periodos, [periodo]: { ...per, seguimiento } } };
+  const updated = { ...obs, periodos: { ...obs.periodos, [periodo]: { ...per, seguimiento, savedAt: new Date().toISOString() } } };
   await fbSet('observadores', docId, updated);
   window._obsActual = updated;
   toast('✅ Periodo '+periodo+' guardado','ok');
@@ -5539,7 +6626,8 @@ function cerrarBuscadorEstudiante() {
 // ══════════════════════════════════════════════
 function init() {
   S.dbReady = true;
-  render();
+  render(); // Renderizar inmediatamente
+  cargarSedesExtra(); // Cargar sedes extra en segundo plano (sin bloquear)
 }
 window.addEventListener('firebaseReady', init);
 if(window._dbReady) init();
