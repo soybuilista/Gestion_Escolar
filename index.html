@@ -4121,13 +4121,24 @@ async function renderCoordStudentAdmin(sedeId) {
   </div>`;
 
   window._allStudentsCoord = sorted;
+  // Mostrar total inicial en el span de conteo
+  const spanInit = document.getElementById('stuListCount');
+  if(spanInit) spanInit.textContent = `(${sorted.length} estudiante${sorted.length!==1?'s':''} en total)`;
 }
 
 function filterStudentList() {
   const g = document.getElementById('filterGroup').value;
+  let visible = 0;
   document.querySelectorAll('[data-group]').forEach(el=>{
-    el.style.display = (!g || el.dataset.group===g) ? '' : 'none';
+    const show = !g || el.dataset.group===g;
+    el.style.display = show ? '' : 'none';
+    if(show) visible++;
   });
+  const span = document.getElementById('stuListCount');
+  if(span) {
+    if(g) span.textContent = `— ${g}: ${visible} estudiante${visible!==1?'s':''}`;
+    else  span.textContent = `(${visible} estudiante${visible!==1?'s':''} en total)`;
+  }
 }
 
 async function addStudentCoord() {
