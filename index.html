@@ -2134,11 +2134,34 @@ const MURAL_SLOTS = [
 ];
 let muralRows = [];
 let muralBusy = new Set();
+let muralCustomGroups = [];
+let muralHiddenGroups = [];
+
+async function muralLoadGroupConfig() {
+  const configs = await fbGet('mural_config');
+  const config = configs.find(item => item.id === 'general') || {};
+  muralCustomGroups = Array.isArray(config.customGroups) ? config.customGroups : [];
+  muralHiddenGroups = Array.isArray(config.hiddenGroups) ? config.hiddenGroups : [];
+}
+
+function muralVisibleGroups() {
+  return [...new Set([...ALL_GROUPS, ...muralCustomGroups])]
+    .filter(group => !muralHiddenGroups.includes(group))
+    .sort((a,b) => a.localeCompare(b, 'es', { numeric:true }));
+}
+
+async function muralSaveGroupConfig() {
+  await fbSet('mural_config', 'general', {
+    customGroups: muralCustomGroups,
+    hiddenGroups: muralHiddenGroups,
+    updatedAt: new Date().toISOString()
+  });
+}
 
 function muralEsc(value) {
   return String(value ?? '').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#039;'}[c]));
 }
-function muralKey(group) { return encodeURIComponent(group); }
+function muralKey(group) { return encodeURIComponent(group).replace(/'/g, '%27'); }
 function muralGroupFromKey(key) { return decodeURIComponent(key); }
 function muralGrade(group) {
   const match = String(group).match(/^(?:[^-]+-)?(\d+)\D/);
@@ -2147,7 +2170,7 @@ function muralGrade(group) {
   if(String(group).toLowerCase().includes('transición')) return 'Preescolar';
   return match ? `${match[1]}°` : 'Otros';
 }
-function muralDocId(group) { return encodeURIComponent(group).replace(/\./g, '%2E'); }
+function muralDocId(group) { return encodeURIComponent(group).replace(/'/g, '%27').replace(/\./g, '%2E'); }
 
 async function renderMuralEscolar() {
   S.module = 'mural';
@@ -2155,7 +2178,10 @@ async function renderMuralEscolar() {
     <button class="btn btn-outline btn-sm" onclick="renderCoordMenu()">← Volver</button>
     <div style="display:flex;justify-content:space-between;gap:12px;align-items:flex-end;flex-wrap:wrap;margin-top:18px">
       <div><h2 class="sec-title" style="margin-bottom:4px">Mural Escolar</h2><p class="sec-sub">Información visible y actualizada para cada grupo institucional.</p></div>
-      <div id="muralSummary" class="badge">Cargando mural…</div>
+      <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap">
+        <div id="muralSummary" class="badge">Cargando mural…</div>
+        <button class="btn btn-purple btn-sm" onclick="muralOpenAddGroup()">Agregar grupo</button>
+      </div>
     </div>
     <div class="mural-toolbar" role="search">
       <input id="muralSearch" aria-label="Buscar grupo" placeholder="Buscar por grupo, sede o jornada" oninput="renderMuralGrid()">
@@ -2164,9 +2190,11 @@ async function renderMuralEscolar() {
     <div id="muralContent"><div class="mural-state"><strong>Cargando mural</strong>Consultando los documentos guardados…</div></div>
   </div>`;
   try {
+    await cargarSedesExtra();
+    await muralLoadGroupConfig();
     const saved = await fbGet('mural_grupos');
     const byGroup = new Map(saved.map(row => [row.grupo, row]));
-    muralRows = ALL_GROUPS.map(grupo => {
+    muralRows = muralVisibleGroups().map(grupo => {
       const row = byGroup.get(grupo) || {};
       return { id:muralDocId(grupo), grupo, imagenes:{ horario:null, aseo:null, acuerdos:null, cumple:null, ...(row.imagenes||{}) }, updatedAt:row.updatedAt||null };
     });
@@ -2201,9 +2229,10 @@ async function renderMuralPublico() {
 
   try {
     await cargarSedesExtra();
+    await muralLoadGroupConfig();
     const saved = await fbGet('mural_grupos');
     const byGroup = new Map(saved.map(row => [row.grupo, row]));
-    muralPublicRows = ALL_GROUPS.map(grupo => {
+    muralPublicRows = muralVisibleGroups().map(grupo => {
       const row = byGroup.get(grupo) || {};
       return {
         grupo,
@@ -2283,6 +2312,60 @@ function muralPublicView(encodedGroup, slot) {
   <img src="${muralEsc(image)}" alt="${muralEsc(label)} de ${muralEsc(row.grupo)}" style="width:100%;max-height:70vh;object-fit:contain;border-radius:12px;margin-top:14px;background:var(--gray-light)">`);
 }
 
+function muralOpenAddGroup() {
+  openModal(`<h3 style="margin:0 0 8px">Agregar grupo al mural</h3>
+    <p style="font-size:.82rem;color:var(--gray);margin-bottom:14px">Escriba el nombre completo del grupo. Este cambio solo afecta el Mural Escolar.</p>
+    <input id="muralNewGroup" maxlength="80" placeholder="Ejemplo: Primero 03" style="width:100%" onkeydown="if(event.key==='Enter')muralAddGroup()">
+    <div style="display:flex;justify-content:flex-end;gap:8px;margin-top:16px">
+      <button class="btn btn-outline" onclick="closeModal()">Cancelar</button>
+      <button class="btn btn-purple" onclick="muralAddGroup()">Agregar grupo</button>
+    </div>`);
+  setTimeout(() => document.getElementById('muralNewGroup')?.focus(), 50);
+}
+
+async function muralAddGroup() {
+  const input = document.getElementById('muralNewGroup');
+  const name = (input?.value || '').trim().replace(/\s+/g, ' ');
+  if(!name) { toast('Escriba el nombre del grupo','err'); input?.focus(); return; }
+
+  const allKnown = [...new Set([...ALL_GROUPS, ...muralCustomGroups, ...muralHiddenGroups])];
+  const existing = allKnown.find(group => group.toLocaleLowerCase('es') === name.toLocaleLowerCase('es'));
+  const finalName = existing || name;
+  const isVisible = muralVisibleGroups().some(group => group.toLocaleLowerCase('es') === finalName.toLocaleLowerCase('es'));
+  if(isVisible) { toast('Este grupo ya aparece en el mural','err'); return; }
+
+  try {
+    muralHiddenGroups = muralHiddenGroups.filter(group => group !== finalName);
+    if(!ALL_GROUPS.includes(finalName) && !muralCustomGroups.includes(finalName)) muralCustomGroups.push(finalName);
+    await muralSaveGroupConfig();
+    closeModal();
+    await renderMuralEscolar();
+    toast('Grupo agregado al mural','ok');
+  } catch(error) {
+    toast('No se pudo agregar el grupo','err');
+  }
+}
+
+async function muralRemoveGroup(encodedGroup) {
+  const group = muralGroupFromKey(encodedGroup);
+  if(!confirm(`¿Eliminar "${group}" del mural?\n\nSe quitarán sus imágenes del mural, pero el grupo seguirá existiendo en los demás módulos de Gestión Escolar.`)) return;
+
+  try {
+    if(muralCustomGroups.includes(group) && !ALL_GROUPS.includes(group)) {
+      muralCustomGroups = muralCustomGroups.filter(item => item !== group);
+    } else if(!muralHiddenGroups.includes(group)) {
+      muralHiddenGroups.push(group);
+    }
+    await muralSaveGroupConfig();
+    await fbDelete('mural_grupos', muralDocId(group));
+    muralRows = muralRows.filter(row => row.grupo !== group);
+    renderMuralGrid();
+    toast('Grupo eliminado del mural','ok');
+  } catch(error) {
+    toast('No se pudo eliminar el grupo','err');
+  }
+}
+
 function renderMuralGrid() {
   const content = document.getElementById('muralContent');
   if(!content) return;
@@ -2303,7 +2386,17 @@ function muralCard(row) {
   const total = MURAL_SLOTS.filter(slot => row.imagenes[slot.key]).length;
   const key = muralKey(row.grupo);
   return `<article class="mural-card" aria-labelledby="mural-${key}">
-    <div class="mural-card-head"><div><div id="mural-${key}" class="mural-card-title">${muralEsc(row.grupo)}</div><div class="mural-card-meta">${muralEsc(muralGrade(row.grupo))}</div><div class="mural-progress" aria-label="${total} de 4 espacios cargados"><span style="width:${total*25}%"></span></div></div><span class="mural-count">${total}/4</span></div>
+    <div class="mural-card-head">
+      <div>
+        <div id="mural-${key}" class="mural-card-title">${muralEsc(row.grupo)}</div>
+        <div class="mural-card-meta">${muralEsc(muralGrade(row.grupo))}</div>
+        <div class="mural-progress" aria-label="${total} de 4 espacios cargados"><span style="width:${total*25}%"></span></div>
+      </div>
+      <div style="display:flex;align-items:center;gap:6px">
+        <span class="mural-count">${total}/4</span>
+        <button class="mural-icon-btn danger" title="Eliminar grupo del mural" aria-label="Eliminar ${muralEsc(row.grupo)} del mural" onclick="muralRemoveGroup('${key}')">×</button>
+      </div>
+    </div>
     <div class="mural-slots">${MURAL_SLOTS.map(slot => muralSlot(row, slot)).join('')}</div>
     <div class="mural-status">${row.updatedAt ? `Actualizado ${new Date(row.updatedAt).toLocaleDateString('es-CO')}` : 'Sin imágenes cargadas'}</div>
   </article>`;
