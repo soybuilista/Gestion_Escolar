@@ -276,6 +276,34 @@ textarea { min-height:85px; resize:vertical; }
 .prog-bar { height:5px;background:var(--gray-light);border-radius:3px;overflow:hidden;margin-top:8px; }
 .prog-fill { height:100%;background:var(--green);border-radius:3px;width:0%;transition:width .3s; }
 
+/* MURAL ESCOLAR */
+.mural-shell { animation:fadeUp .35s ease both; }
+.mural-toolbar { display:flex;gap:10px;align-items:center;flex-wrap:wrap;margin:16px 0 20px; }
+.mural-toolbar input,.mural-toolbar select { margin:0;min-width:180px;flex:1; }
+.mural-toolbar select { flex:0 1 210px; }
+.mural-grid { display:grid;grid-template-columns:repeat(auto-fill,minmax(290px,1fr));gap:16px; }
+.mural-card { background:var(--surface,#fff);border:1px solid var(--border);border-radius:16px;box-shadow:var(--shadow);overflow:hidden; }
+.mural-card-head { padding:16px 16px 12px;display:flex;justify-content:space-between;gap:12px;align-items:flex-start;border-bottom:1px solid var(--gray-light); }
+.mural-card-title { color:var(--purple-dark);font-weight:800;font-size:1rem;line-height:1.25; }
+.mural-card-meta { color:var(--gray);font-size:.75rem;margin-top:4px; }
+.mural-count { background:var(--purple-light);color:var(--purple-dark);border-radius:999px;padding:5px 9px;font-size:.72rem;font-weight:800;white-space:nowrap; }
+.mural-progress { height:5px;background:var(--gray-light);border-radius:5px;margin-top:10px;overflow:hidden; }
+.mural-progress span { display:block;height:100%;background:var(--purple);transition:width .25s; }
+.mural-slots { padding:14px;display:grid;grid-template-columns:1fr 1fr;gap:10px; }
+.mural-slot { position:relative;min-height:132px;border:1.5px dashed var(--border);border-radius:12px;background:var(--purple-light);overflow:hidden;display:flex;flex-direction:column; }
+.mural-slot.has-image { border-style:solid;background:#fff; }
+.mural-slot img { width:100%;height:92px;object-fit:cover;display:block;cursor:zoom-in; }
+.mural-slot-label { padding:8px 9px 9px;color:var(--purple-dark);font-size:.72rem;font-weight:750;line-height:1.15; }
+.mural-slot-empty { height:92px;display:grid;place-items:center;color:var(--gray);font-size:.75rem;text-align:center;padding:10px; }
+.mural-slot-actions { position:absolute;right:6px;top:6px;display:flex;gap:4px; }
+.mural-icon-btn { width:27px;height:27px;border:0;border-radius:8px;background:rgba(255,255,255,.94);color:var(--purple-dark);box-shadow:0 2px 8px rgba(39,20,80,.14);cursor:pointer;font-weight:800; }
+.mural-icon-btn.danger { color:var(--red); }
+.mural-upload { position:absolute;inset:0;opacity:0;cursor:pointer;width:100%; }
+.mural-status { padding:0 16px 14px;color:var(--gray);font-size:.73rem; }
+.mural-state { background:#fff;border:1px solid var(--border);border-radius:16px;padding:38px 20px;text-align:center;color:var(--gray); }
+.mural-state strong { display:block;color:var(--purple-dark);font-size:1rem;margin-bottom:6px; }
+@media(max-width:640px){ .mural-grid{grid-template-columns:1fr}.mural-toolbar input,.mural-toolbar select{min-width:100%;flex-basis:100%;} }
+
 @media(max-width:640px){
   .form-grid { grid-template-columns:1fr; }
   header { padding:0 12px; height:64px; }
@@ -526,6 +554,8 @@ async function uploadDoc(file) {
   if(!res.ok) throw new Error('Upload failed');
   return (await res.json()).secure_url;
 }
+// Alias explícito para módulos que trabajan con imágenes institucionales.
+async function uploadCloudinary(file) { return uploadDoc(file); }
 
 // ══════════════════════════════════════════════
 // HEADER
@@ -2055,6 +2085,11 @@ function renderCoordMenu() {
       <h3>Administrar Grupos</h3>
       <p>Asignar directores de grupo</p>
     </div>
+    <div class="menu-item" onclick="renderMuralEscolar()" style="border-color:var(--purple);background:var(--purple-light)">
+      <div class="mi" aria-hidden="true">ME</div>
+      <h3>Mural Escolar</h3>
+      <p>Horarios, acuerdos y cumpleaños por grupo</p>
+    </div>
     <div class="menu-item" onclick="renderGestionSedes()">
       <div class="mi">🏫</div>
       <h3>Gestionar Sedes</h3>
@@ -2066,6 +2101,136 @@ function renderCoordMenu() {
       <p>Renombrar grupos de tarde en todos los registros</p>
     </div>
   </div>`;
+}
+
+// ══════════════════════════════════════════════
+// MURAL ESCOLAR
+// ══════════════════════════════════════════════
+const MURAL_SLOTS = [
+  { key:'horario', label:'Horario de clases' },
+  { key:'aseo', label:'Horario de aseo' },
+  { key:'acuerdos', label:'Acuerdos de aula' },
+  { key:'cumple', label:'Calendario de cumpleaños' },
+];
+let muralRows = [];
+let muralBusy = new Set();
+
+function muralEsc(value) {
+  return String(value ?? '').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#039;'}[c]));
+}
+function muralKey(group) { return encodeURIComponent(group); }
+function muralGroupFromKey(key) { return decodeURIComponent(key); }
+function muralGrade(group) {
+  const match = String(group).match(/^(?:[^-]+-)?(\d+)\D/);
+  if(String(group).toLowerCase().includes('prejardín')) return 'Preescolar';
+  if(String(group).toLowerCase().includes('jardín')) return 'Preescolar';
+  if(String(group).toLowerCase().includes('transición')) return 'Preescolar';
+  return match ? `${match[1]}°` : 'Otros';
+}
+function muralDocId(group) { return encodeURIComponent(group).replace(/\./g, '%2E'); }
+
+async function renderMuralEscolar() {
+  S.module = 'mural';
+  $app.innerHTML = `<div class="mural-shell">
+    <button class="btn btn-outline btn-sm" onclick="renderCoordMenu()">← Volver</button>
+    <div style="display:flex;justify-content:space-between;gap:12px;align-items:flex-end;flex-wrap:wrap;margin-top:18px">
+      <div><h2 class="sec-title" style="margin-bottom:4px">Mural Escolar</h2><p class="sec-sub">Información visible y actualizada para cada grupo institucional.</p></div>
+      <div id="muralSummary" class="badge">Cargando mural…</div>
+    </div>
+    <div class="mural-toolbar" role="search">
+      <input id="muralSearch" aria-label="Buscar grupo" placeholder="Buscar por grupo, sede o jornada" oninput="renderMuralGrid()">
+      <select id="muralGrade" aria-label="Filtrar por grado" onchange="renderMuralGrid()"><option value="all">Todos los grados</option></select>
+    </div>
+    <div id="muralContent"><div class="mural-state"><strong>Cargando mural</strong>Consultando los documentos guardados…</div></div>
+  </div>`;
+  try {
+    const saved = await fbGet('mural_grupos');
+    const byGroup = new Map(saved.map(row => [row.grupo, row]));
+    muralRows = ALL_GROUPS.map(grupo => {
+      const row = byGroup.get(grupo) || {};
+      return { id:muralDocId(grupo), grupo, imagenes:{ horario:null, aseo:null, acuerdos:null, cumple:null, ...(row.imagenes||{}) }, updatedAt:row.updatedAt||null };
+    });
+    const grades = [...new Set(muralRows.map(row => muralGrade(row.grupo)))].sort((a,b)=>a==='Preescolar'?-1:b==='Preescolar'?1:a.localeCompare(b,'es',{numeric:true}));
+    document.getElementById('muralGrade').innerHTML = `<option value="all">Todos los grados</option>${grades.map(g=>`<option value="${muralEsc(g)}">${muralEsc(g)}</option>`).join('')}`;
+    renderMuralGrid();
+  } catch(error) {
+    document.getElementById('muralContent').innerHTML = `<div class="mural-state"><strong>No pudimos cargar el mural</strong>Verifique la conexión e intente nuevamente.<br><button class="btn btn-purple btn-sm" style="margin-top:14px" onclick="renderMuralEscolar()">Reintentar</button></div>`;
+    document.getElementById('muralSummary').textContent = 'Error de conexión';
+  }
+}
+
+function renderMuralGrid() {
+  const content = document.getElementById('muralContent');
+  if(!content) return;
+  const q = (document.getElementById('muralSearch')?.value||'').trim().toLowerCase();
+  const grade = document.getElementById('muralGrade')?.value || 'all';
+  const rows = muralRows.filter(row => (!q || row.grupo.toLowerCase().includes(q)) && (grade==='all' || muralGrade(row.grupo)===grade));
+  const complete = muralRows.filter(row => MURAL_SLOTS.every(slot => row.imagenes[slot.key])).length;
+  const summary = document.getElementById('muralSummary');
+  if(summary) summary.textContent = `${rows.length} grupos · ${complete} completos`;
+  if(!rows.length) {
+    content.innerHTML = `<div class="mural-state"><strong>No hay grupos para mostrar</strong>Ajuste la búsqueda o el filtro de grado.</div>`;
+    return;
+  }
+  content.innerHTML = `<div class="mural-grid">${rows.map(row => muralCard(row)).join('')}</div>`;
+}
+
+function muralCard(row) {
+  const total = MURAL_SLOTS.filter(slot => row.imagenes[slot.key]).length;
+  const key = muralKey(row.grupo);
+  return `<article class="mural-card" aria-labelledby="mural-${key}">
+    <div class="mural-card-head"><div><div id="mural-${key}" class="mural-card-title">${muralEsc(row.grupo)}</div><div class="mural-card-meta">${muralEsc(muralGrade(row.grupo))}</div><div class="mural-progress" aria-label="${total} de 4 espacios cargados"><span style="width:${total*25}%"></span></div></div><span class="mural-count">${total}/4</span></div>
+    <div class="mural-slots">${MURAL_SLOTS.map(slot => muralSlot(row, slot)).join('')}</div>
+    <div class="mural-status">${row.updatedAt ? `Actualizado ${new Date(row.updatedAt).toLocaleDateString('es-CO')}` : 'Sin imágenes cargadas'}</div>
+  </article>`;
+}
+
+function muralSlot(row, slot) {
+  const image = row.imagenes[slot.key];
+  const actionKey = `${row.grupo}|${slot.key}`;
+  const busy = muralBusy.has(actionKey);
+  const key = muralKey(row.grupo);
+  return `<div class="mural-slot ${image?'has-image':''}" aria-label="${muralEsc(slot.label)}">
+    ${image ? `<img src="${muralEsc(image)}" alt="${muralEsc(slot.label)} de ${muralEsc(row.grupo)}" onclick="muralView('${key}','${slot.key}')">` : `<div class="mural-slot-empty">${busy?'Subiendo…':'Sin imagen'}</div>`}
+    <div class="mural-slot-label">${muralEsc(slot.label)}</div>
+    ${image ? `<div class="mural-slot-actions"><button class="mural-icon-btn" title="Visualizar" aria-label="Visualizar ${muralEsc(slot.label)}" onclick="muralView('${key}','${slot.key}')">Ver</button><button class="mural-icon-btn danger" title="Eliminar" aria-label="Eliminar ${muralEsc(slot.label)}" onclick="muralDelete('${key}','${slot.key}')">×</button></div>` : ''}
+    <input class="mural-upload" type="file" accept="image/*" aria-label="Cargar o reemplazar ${muralEsc(slot.label)}" ${busy?'disabled':''} onchange="muralUpload('${key}','${slot.key}',this)">
+  </div>`;
+}
+
+async function muralUpload(encodedGroup, slot, input) {
+  const file = input.files?.[0]; if(!file) return;
+  if(!file.type.startsWith('image/')) { toast('Seleccione una imagen válida','err'); return; }
+  const grupo = muralGroupFromKey(encodedGroup), actionKey = `${grupo}|${slot}`;
+  muralBusy.add(actionKey); renderMuralGrid();
+  try {
+    const url = await uploadCloudinary(file);
+    const row = muralRows.find(item => item.grupo===grupo);
+    if(!row) throw new Error('Grupo no encontrado');
+    row.imagenes[slot] = url; row.updatedAt = new Date().toISOString();
+    await fbSet('mural_grupos', muralDocId(grupo), { grupo, imagenes:row.imagenes, updatedAt:row.updatedAt });
+    toast('Imagen guardada','ok');
+  } catch(error) { toast('No se pudo guardar la imagen','err'); }
+  finally { muralBusy.delete(actionKey); renderMuralGrid(); }
+}
+
+async function muralDelete(encodedGroup, slot) {
+  const grupo = muralGroupFromKey(encodedGroup), row = muralRows.find(item => item.grupo===grupo);
+  if(!row || !row.imagenes[slot] || !confirm('¿Eliminar esta imagen del mural?')) return;
+  const actionKey = `${grupo}|${slot}`; muralBusy.add(actionKey); renderMuralGrid();
+  try {
+    row.imagenes[slot] = null; row.updatedAt = new Date().toISOString();
+    await fbSet('mural_grupos', muralDocId(grupo), { grupo, imagenes:row.imagenes, updatedAt:row.updatedAt });
+    toast('Imagen eliminada','ok');
+  } catch(error) { toast('No se pudo eliminar la imagen','err'); }
+  finally { muralBusy.delete(actionKey); renderMuralGrid(); }
+}
+
+function muralView(encodedGroup, slot) {
+  const row = muralRows.find(item => item.grupo===muralGroupFromKey(encodedGroup));
+  const image = row?.imagenes?.[slot], label = MURAL_SLOTS.find(item=>item.key===slot)?.label||'Imagen';
+  if(!image) return;
+  openModal(`<div style="display:flex;justify-content:space-between;align-items:center;gap:12px"><h3 style="margin:0">${muralEsc(label)}</h3><button class="btn btn-outline btn-sm" onclick="closeModal()">Cerrar</button></div><img src="${muralEsc(image)}" alt="${muralEsc(label)} de ${muralEsc(row.grupo)}" style="width:100%;max-height:70vh;object-fit:contain;border-radius:12px;margin-top:14px;background:var(--gray-light)">`);
 }
 
 
@@ -5884,6 +6049,19 @@ function obsAbrirPeriodo(docId, periodo) {
   const origin = window._obsOrigin||'coordinator';
   const canEdit = origin !== 'secretary';
   const per = obs.periodos?.[periodo]||{ seguimiento:{}, anotaciones:[] };
+
+  // ── Inicializar _segTemp ANTES de construir el HTML ──
+  // Solo reutilizar selecciones previas si es el MISMO estudiante y MISMO periodo
+  const _prevSegTemp = (window._segTempCtx?.docId === docId && window._segTempCtx?.periodo === periodo)
+    ? {...(window._segTemp||{})} : {};
+  window._segTemp = {};
+  window._segTempCtx = { docId, periodo };
+  OBS_SEGUIMIENTO.forEach(sec=>sec.criterios.forEach((c,ci)=>{
+    const key = sec.aspecto.replace(/\s+/g,'_')+'_'+ci;
+    const v = per.seguimiento?.[key] || _prevSegTemp[key] || '';
+    if(v) window._segTemp[key] = v;
+  }));
+
   const $r = document.getElementById('obsResult');
 
   $r.innerHTML = `
@@ -5900,7 +6078,7 @@ function obsAbrirPeriodo(docId, periodo) {
       <tbody>
         ${OBS_SEGUIMIENTO.map(sec=>sec.criterios.map((crit,ci)=>{
           const key = sec.aspecto.replace(/\s+/g,'_')+'_'+ci;
-          const val = per.seguimiento?.[key]||'';
+          const val = (window._segTemp||{})[key] || per.seguimiento?.[key]||'';
           return `<tr>
             ${ci===0?`<td rowspan="${sec.criterios.length}" style="font-weight:700;font-size:.8rem;vertical-align:middle;background:var(--bg)">${sec.aspecto}</td>`:''}
             <td style="font-size:.82rem">${crit}</td>
@@ -5986,12 +6164,6 @@ function obsAbrirPeriodo(docId, periodo) {
     </div>`:''}
   </div>`;
 
-  window._segTemp = {};
-  // Pre-populate _segTemp with existing values
-  OBS_SEGUIMIENTO.forEach(sec=>sec.criterios.forEach((c,ci)=>{
-    const key = sec.aspecto.replace(/\s+/g,'_')+'_'+ci;
-    if(per.seguimiento?.[key]) window._segTemp[key]=per.seguimiento[key];
-  }));
 }
 
 async function obsAgregarAnotacion(docId, periodo) {
@@ -6217,147 +6389,330 @@ async function obsGuardarPeriodo(docId, periodo) {
 // ── IMPRESIÓN ──
 function obsImprimir(docId) {
   const obs = window._obsActual;
-  const d = obs.datosBasicos||{};
+  const d   = obs.datosBasicos || {};
   const inst = OBS_INST;
-  const año = obs.año;
+  const año  = obs.año;
 
-  const encabezado = `
-  <div style="text-align:center;margin-bottom:20px">
-    <div style="font-size:.85rem">${inst.municipio}</div>
-    <div style="font-size:1.1rem;font-weight:700">${inst.nombre}</div>
-    <div style="font-size:.8rem">Código DANE: ${inst.dane} - NIT: ${inst.nit}</div>
-  </div>`;
+  // ── helpers ─────────────────────────────────────────────────────────────
+  const B = (txt) => `<b>${txt}</b>`;
+  const td = (label, val, style='') =>
+    `<td style="padding:4px 7px;border:1px solid #aaa;font-size:8.5pt;vertical-align:top;${style}">${label?`<b>${label}</b>&nbsp;`:''}${val||'—'}</td>`;
+  const th = (label, cols=1, style='') =>
+    `<td colspan="${cols}" style="text-align:center;font-weight:700;background:#d8d8d8;padding:4px 7px;font-size:8.5pt;border:1px solid #aaa;${style}">${label}</td>`;
 
+  // Header de dos columnas en cada página
+  const hdr = (derecha1='', derecha2='') => `
+    <table style="width:100%;border-collapse:collapse;border-bottom:2.5px solid #333;margin-bottom:10px;padding-bottom:5px">
+      <tr>
+        <td style="width:60%;vertical-align:middle;padding-bottom:4px">
+          <div style="font-size:8pt;font-weight:600;letter-spacing:.5px">${inst.municipio}</div>
+          <div style="font-size:11.5pt;font-weight:700;line-height:1.25">${inst.nombre}</div>
+          <div style="font-size:7.5pt;color:#444">Código DANE: ${inst.dane} &nbsp;-&nbsp; NIT: ${inst.nit}</div>
+        </td>
+        <td style="width:40%;text-align:right;vertical-align:middle;padding-bottom:4px">
+          ${derecha1 ? `<div style="font-size:9pt;font-weight:700">${derecha1}</div>` : ''}
+          ${derecha2 ? `<div style="font-size:7.5pt;color:#444;margin-top:2px">${derecha2}</div>` : ''}
+        </td>
+      </tr>
+    </table>`;
+
+  // Pie de página con dirección
+  const pie = `
+    <div style="text-align:center;margin-top:14px;padding-top:5px;border-top:1px solid #bbb;font-size:7.5pt;color:#555">
+      ${inst.direccion}
+    </div>`;
+
+  // ── PORTADA ─────────────────────────────────────────────────────────────
   const portada = `
-  <div style="text-align:center;padding:40px 20px;page-break-after:always">
-    ${encabezado}
-    ${obs.foto?`<img src="${obs.foto}" style="width:130px;height:160px;object-fit:cover;border:2px solid #333;margin:20px auto;display:block">`:''}
-    <div style="font-size:1rem;margin-top:20px">FICHA OBSERVADOR DEL ESTUDIANTE</div>
-    <div style="font-size:1.3rem;font-weight:700">${obs.nombreEstudiante}</div>
-    <div style="font-size:.9rem;margin-top:8px">Doc: ${d.documento||'—'}</div>
-    <div style="font-size:.8rem;margin-top:20px">${inst.direccion}</div>
+  <div style="text-align:center;page-break-after:always;padding:60px 30px 40px;display:flex;flex-direction:column;align-items:center;min-height:220mm">
+    <div style="font-size:9pt;font-weight:600;letter-spacing:1px;margin-bottom:3px">${inst.municipio}</div>
+    <div style="font-size:14pt;font-weight:700;margin-bottom:4px">${inst.nombre}</div>
+    <div style="font-size:8pt;color:#555;margin-bottom:30px">Código DANE: ${inst.dane} &nbsp;-&nbsp; NIT: ${inst.nit}</div>
+    ${obs.foto
+      ? `<img src="${obs.foto}" style="width:120px;height:150px;object-fit:cover;border:2px solid #333;margin-bottom:28px;display:block">`
+      : `<div style="width:110px;height:138px;border:2px dashed #bbb;margin-bottom:28px;display:flex;align-items:center;justify-content:center;font-size:32pt;color:#ccc">👤</div>`}
+    <div style="font-size:10.5pt;font-weight:700;letter-spacing:.5px;margin-bottom:8px">FICHA OBSERVADOR DEL ESTUDIANTE</div>
+    <div style="font-size:14pt;font-weight:700;text-transform:uppercase;margin-bottom:6px">${obs.nombreEstudiante}</div>
+    ${d.documento ? `<div style="font-size:9pt;color:#444;margin-bottom:4px">Doc: ${d.documento}</div>` : ''}
+    <div style="font-size:9pt;color:#444;margin-bottom:30px">${obs.grupo || ''}</div>
+    <div style="margin-top:auto;font-size:8.5pt;color:#555">${inst.direccion}</div>
   </div>`;
+
+  // ── DATOS DEL ESTUDIANTE ─────────────────────────────────────────────────
+  const desOk    = OBS_DESEMPENO.filter(x => obs.desempeno?.[x.id]  && obs.desempeno[x.id]  !== 'No aplica');
+  const difOk    = OBS_DIFICULTADES.filter(x => obs.dificultades?.[x.id] && obs.dificultades[x.id] !== 'No presenta');
+  const prefs    = [
+    { label:'Deporte preferido',  desc:'Seleccione el deporte preferido por el estudiante',            val: obs.preferencias?.deporte },
+    { label:'Música favorita',    desc:'Seleccione el género musical preferido por el estudiante',      val: obs.preferencias?.musica },
+    { label:'Profesión u oficio', desc:'Seleccione la profesión preferida por el estudiante',           val: obs.preferencias?.profesion },
+    { label:'Religión',           desc:'Seleccione la religión del estudiante',                         val: obs.preferencias?.religion },
+    { label:'Arte',               desc:'Seleccione el arte preferido por el estudiante',                val: obs.preferencias?.arte },
+  ];
 
   const datosPag = `
   <div style="page-break-after:always">
-    ${encabezado}
-    <table border="1" cellpadding="6" cellspacing="0" style="width:100%;border-collapse:collapse;font-size:.8rem;margin-bottom:14px">
-      <tr><td colspan="4" style="text-align:center;font-weight:700;background:#eee">INFORMACIÓN DEL ESTUDIANTE</td></tr>
-      <tr><td><b>Estudiante</b></td><td colspan="3">${obs.nombreEstudiante}</td></tr>
-      <tr><td><b>Documento</b></td><td>${d.documento||'—'}</td><td><b>F. Nacimiento</b></td><td>${d.fechaNacimiento||'—'}</td></tr>
-      <tr><td><b>Lugar Nacimiento</b></td><td>${d.lugarNacimiento||'—'}</td><td><b>Lugar Exp.</b></td><td>${d.lugarExpedicion||'—'}</td></tr>
-      <tr><td><b>Dirección</b></td><td>${d.direccion||'—'}</td><td><b>Zona</b></td><td>${d.zona||'—'}</td></tr>
-      <tr><td><b>Municipio</b></td><td>${d.municipio||'—'}</td><td><b>Teléfono</b></td><td>${d.telefono||'—'}</td></tr>
-      <tr><td colspan="4" style="text-align:center;font-weight:700;background:#eee">Información de Caracterización</td></tr>
-      <tr><td><b>Estrato</b></td><td>${d.estrato||'—'}</td><td><b>Nivel Sisben</b></td><td>${d.sisben||'—'}</td></tr>
-      <tr><td><b>Desplazado</b></td><td>${d.desplazado||'—'}</td><td><b>Tipo de Sangre</b></td><td>${d.tipoSangre||'—'}</td></tr>
-      <tr><td><b>Talla</b></td><td>${d.talla||'0'}cm</td><td><b>Peso</b></td><td>${d.peso||'0.00'} Kg</td></tr>
-      <tr><td><b>Cap. Excepcional</b></td><td>${d.capacidadExcepcional||'—'}</td><td><b>Discapacidad</b></td><td>${d.discapacidad||'—'}</td></tr>
-      <tr><td><b>Grupo Étnico</b></td><td>${d.grupoEtnico||'—'}</td><td><b>EPS</b></td><td>${d.eps||'—'}</td></tr>
-      <tr><td><b>Hijo Madre Cabeza</b></td><td>${d.hijoMadreCabeza||'—'}</td><td><b>Madre Cabeza Familia</b></td><td>${d.madreCabeza||'—'}</td></tr>
+    ${hdr('Ficha Observador del Estudiante', `Año ${año}`)}
+
+    <table border="0" cellpadding="0" cellspacing="0" style="width:100%;border-collapse:collapse;margin-bottom:8px">
+      <tr>${th('INFORMACIÓN DEL ESTUDIANTE', 4)}</tr>
+      <tr>
+        <td style="padding:4px 7px;border:1px solid #aaa;font-weight:700;font-size:8.5pt;width:16%">Estudiante</td>
+        <td colspan="3" style="padding:4px 7px;border:1px solid #aaa;font-size:8.5pt;font-weight:700">${obs.nombreEstudiante}</td>
+      </tr>
+      <tr>
+        ${td('Documento',   d.documento,   'width:16%')}
+        ${td('F. Nacimiento', d.fechaNacimiento, 'width:17%')}
+        ${td('Lugar de Nacimiento', d.lugarNacimiento, 'width:17%')}
+        ${td('Lugar Exp.', d.lugarExpedicion)}
+      </tr>
+      <tr>
+        ${td('Dirección',   d.direccion,   'width:16%')}
+        ${td('Zona',        d.zona,        'width:17%')}
+        ${td('Municipio',   d.municipio,   'width:17%')}
+        ${td('Teléfono',    d.telefono)}
+      </tr>
     </table>
-    <table border="1" cellpadding="6" cellspacing="0" style="width:100%;border-collapse:collapse;font-size:.8rem;margin-bottom:14px">
-      <tr><td colspan="3" style="text-align:center;font-weight:700;background:#eee">NIVEL DE DESEMPEÑO</td></tr>
-      <tr><td style="font-weight:700">CARACTERÍSTICA</td><td style="font-weight:700">VALOR</td><td style="font-weight:700">OBSERVACIÓN</td></tr>
-      ${OBS_DESEMPENO.filter(d2=>(obs.desempeno?.[d2.id]||'No aplica')!=='No aplica').map(d2=>`
-      <tr><td><b>${d2.label}</b><br><small>${d2.desc}</small></td><td>${obs.desempeno?.[d2.id]||'—'}</td><td></td></tr>`).join('')}
+
+    <table border="0" cellpadding="0" cellspacing="0" style="width:100%;border-collapse:collapse;margin-bottom:8px">
+      <tr>${th('Información de Caracterización del Estudiante', 6)}</tr>
+      <tr>
+        ${td('Estrato',       d.estrato||'—',                  'width:10%')}
+        ${td('Nivel Sisben',  d.sisben||'—',                   'width:12%')}
+        ${td('Desplazado',    d.desplazado||'N',               'width:10%')}
+        ${td('Tipo de Sangre',d.tipoSangre||'Desconocido',     'width:16%')}
+        ${td('Talla',         (d.talla||'0')+'cm',             'width:10%')}
+        ${td('Peso',          (d.peso||'0.00')+' Kg',          'width:10%')}
+      </tr>
+      <tr>
+        ${td('Cap. Excepcional', d.capacidadExcepcional||'No aplica')}
+        ${td('Discapacidad',     d.discapacidad||'No aplica')}
+        ${td('EPS',              d.eps||'—')}
+        ${td('Grupo Étnico',     d.grupoEtnico||'NO APLICA')}
+        ${td('Hijo Madre Cabeza',d.hijoMadreCabeza||'N', 'width:10%')}
+        ${td('Madre Cabeza Familia', d.madreCabeza||'N', 'width:10%')}
+      </tr>
     </table>
-    <table border="1" cellpadding="6" cellspacing="0" style="width:100%;border-collapse:collapse;font-size:.8rem;margin-bottom:14px">
-      <tr><td colspan="3" style="text-align:center;font-weight:700;background:#eee">DIFICULTADES DE APRENDIZAJE</td></tr>
-      <tr><td style="font-weight:700">CARACTERÍSTICA</td><td style="font-weight:700">VALOR</td><td style="font-weight:700">OBSERVACIÓN</td></tr>
-      ${OBS_DIFICULTADES.filter(d2=>(obs.dificultades?.[d2.id]||'No presenta')!=='No presenta').map(d2=>`
-      <tr><td><b>${d2.label}</b><br><small>${d2.desc}</small></td><td>${obs.dificultades?.[d2.id]||'—'}</td><td></td></tr>`).join('')}
+
+    ${desOk.length > 0 ? `
+    <table border="0" cellpadding="0" cellspacing="0" style="width:100%;border-collapse:collapse;margin-bottom:8px">
+      <tr>${th('NIVEL DE DESEMPEÑO', 3)}</tr>
+      <tr>
+        <td style="padding:4px 7px;border:1px solid #aaa;font-weight:700;font-size:8pt;width:58%">CARACTERÍSTICA</td>
+        <td style="padding:4px 7px;border:1px solid #aaa;font-weight:700;font-size:8pt;width:19%">VALOR</td>
+        <td style="padding:4px 7px;border:1px solid #aaa;font-weight:700;font-size:8pt">OBSERVACIÓN</td>
+      </tr>
+      ${desOk.map(x=>`
+      <tr>
+        <td style="padding:4px 7px;border:1px solid #aaa;font-size:8pt;vertical-align:top">
+          <b>${x.label}</b><br><span style="color:#555;font-size:7.5pt">${x.desc}</span>
+        </td>
+        <td style="padding:4px 7px;border:1px solid #aaa;font-size:8pt;font-weight:600;vertical-align:top">${obs.desempeno[x.id]}</td>
+        <td style="padding:4px 7px;border:1px solid #aaa"></td>
+      </tr>`).join('')}
+    </table>` : ''}
+
+    ${difOk.length > 0 ? `
+    <table border="0" cellpadding="0" cellspacing="0" style="width:100%;border-collapse:collapse;margin-bottom:8px">
+      <tr>${th('DIFICULTADES DE APRENDIZAJE', 3)}</tr>
+      <tr>
+        <td style="padding:4px 7px;border:1px solid #aaa;font-weight:700;font-size:8pt;width:58%">CARACTERÍSTICA</td>
+        <td style="padding:4px 7px;border:1px solid #aaa;font-weight:700;font-size:8pt;width:19%">VALOR</td>
+        <td style="padding:4px 7px;border:1px solid #aaa;font-weight:700;font-size:8pt">OBSERVACIÓN</td>
+      </tr>
+      ${difOk.map(x=>`
+      <tr>
+        <td style="padding:4px 7px;border:1px solid #aaa;font-size:8pt;vertical-align:top">
+          <b>${x.label}</b><br><span style="color:#555;font-size:7.5pt">${x.desc}</span>
+        </td>
+        <td style="padding:4px 7px;border:1px solid #aaa;font-size:8pt;font-weight:600;vertical-align:top">${obs.dificultades[x.id]}</td>
+        <td style="padding:4px 7px;border:1px solid #aaa"></td>
+      </tr>`).join('')}
+    </table>` : ''}
+
+    <table border="0" cellpadding="0" cellspacing="0" style="width:100%;border-collapse:collapse;margin-bottom:8px">
+      <tr>${th('PREFERENCIAS', 3)}</tr>
+      <tr>
+        <td style="padding:4px 7px;border:1px solid #aaa;font-weight:700;font-size:8pt;width:58%">CARACTERÍSTICA</td>
+        <td style="padding:4px 7px;border:1px solid #aaa;font-weight:700;font-size:8pt;width:19%">VALOR</td>
+        <td style="padding:4px 7px;border:1px solid #aaa;font-weight:700;font-size:8pt">OBSERVACIÓN</td>
+      </tr>
+      ${prefs.map(p=>`
+      <tr>
+        <td style="padding:4px 7px;border:1px solid #aaa;font-size:8pt;vertical-align:top">
+          <b>${p.label}</b><br><span style="color:#555;font-size:7.5pt">${p.desc}</span>
+        </td>
+        <td style="padding:4px 7px;border:1px solid #aaa;font-size:8pt;font-weight:600;vertical-align:top">${p.val||'—'}</td>
+        <td style="padding:4px 7px;border:1px solid #aaa"></td>
+      </tr>`).join('')}
     </table>
-    <table border="1" cellpadding="6" cellspacing="0" style="width:100%;border-collapse:collapse;font-size:.8rem;margin-bottom:14px">
-      <tr><td colspan="5" style="text-align:center;font-weight:700;background:#eee">PREFERENCIAS</td></tr>
-      <tr><td><b>Deporte</b></td><td>${obs.preferencias?.deporte||'—'}</td><td><b>Música</b></td><td>${obs.preferencias?.musica||'—'}</td><td></td></tr>
-      <tr><td><b>Profesión</b></td><td>${obs.preferencias?.profesion||'—'}</td><td><b>Religión</b></td><td>${obs.preferencias?.religion||'—'}</td><td></td></tr>
-      <tr><td><b>Arte</b></td><td colspan="3">${obs.preferencias?.arte||'—'}</td><td></td></tr>
-    </table>
-    <table border="1" cellpadding="6" cellspacing="0" style="width:100%;border-collapse:collapse;font-size:.8rem">
-      <tr><td colspan="5" style="text-align:center;font-weight:700;background:#eee">INFORMACIÓN FAMILIAR</td></tr>
-      <tr><td><b>Parentesco</b></td><td><b>Nombre</b></td><td><b>Documento</b></td><td><b>Teléfono</b></td><td><b>Acudiente</b></td></tr>
-      ${(obs.familias||[]).map(f=>`<tr><td>${f.parentesco}</td><td>${f.nombre}</td><td>${f.documento||'—'}</td><td>${f.telefono||'—'}</td><td>${f.acudiente?'X':''}</td></tr>`).join('')}
-    </table>
-    <div style="text-align:center;margin-top:10px;font-size:.75rem">${inst.direccion}</div>
+
+    ${(obs.familias||[]).length > 0 ? `
+    <table border="0" cellpadding="0" cellspacing="0" style="width:100%;border-collapse:collapse;margin-bottom:8px">
+      <tr>${th('Información Familiar', 5)}</tr>
+      <tr>
+        <td style="padding:4px 7px;border:1px solid #aaa;font-weight:700;font-size:8pt;width:15%">Parentesco</td>
+        <td style="padding:4px 7px;border:1px solid #aaa;font-weight:700;font-size:8pt;width:30%">Nombre Completo</td>
+        <td style="padding:4px 7px;border:1px solid #aaa;font-weight:700;font-size:8pt;width:16%">Documento</td>
+        <td style="padding:4px 7px;border:1px solid #aaa;font-weight:700;font-size:8pt;width:24%">Teléfono</td>
+        <td style="padding:4px 7px;border:1px solid #aaa;font-weight:700;font-size:8pt;text-align:center;width:15%">Acudiente</td>
+      </tr>
+      ${(obs.familias||[]).map(f=>`
+      <tr>
+        <td style="padding:4px 7px;border:1px solid #aaa;font-size:8pt">${f.parentesco}</td>
+        <td style="padding:4px 7px;border:1px solid #aaa;font-size:8pt">${f.nombre}</td>
+        <td style="padding:4px 7px;border:1px solid #aaa;font-size:8pt">${f.documento||'—'}</td>
+        <td style="padding:4px 7px;border:1px solid #aaa;font-size:8pt">${f.telefono||'—'}</td>
+        <td style="padding:4px 7px;border:1px solid #aaa;font-size:8pt;text-align:center;font-weight:700">${f.acudiente?'X':''}</td>
+      </tr>`).join('')}
+    </table>` : ''}
+
+    <div style="margin-top:10px">
+      <span style="font-size:8pt;font-weight:700">OBSERVACIONES:</span>
+      <div style="margin-top:18px;border-bottom:1px solid #aaa;width:100%"></div>
+      <div style="margin-top:18px;border-bottom:1px solid #aaa;width:100%"></div>
+    </div>
+    <div style="text-align:right;margin-top:30px;font-size:8.5pt">
+      <div style="display:inline-block;text-align:center">
+        <div style="font-weight:700">${inst.rectora}</div>
+        <div style="font-size:7.5pt;color:#555">RECTORA</div>
+      </div>
+    </div>
+    ${pie}
   </div>`;
 
-  const periodosPags = [1,2,3,4].map(p=>{
+  // ── PÁGINAS DE PERIODOS ──────────────────────────────────────────────────
+  const periodosPags = [1,2,3,4].map(p => {
     const per = obs.periodos?.[p];
     if(!per) return '';
-    const seg = per.seguimiento||{};
+    const seg = per.seguimiento || {};
+    const anotaciones = per.anotaciones || [];
+
     return `
     <div style="page-break-after:always">
-      ${encabezado}
-      <div style="text-align:right;font-size:.85rem;margin-bottom:8px">Informe Periódico — Periodo ${p} · Año ${año}</div>
-      <div style="font-size:.82rem;margin-bottom:8px"><b>Estudiante:</b> ${obs.nombreEstudiante} &nbsp; <b>Grado:</b> ${obs.grupo} &nbsp; <b>Jornada:</b> ${obs.datosBasicos?.jornada||'—'}</div>
-      <table border="1" cellpadding="4" cellspacing="0" style="width:100%;border-collapse:collapse;font-size:.78rem;margin-bottom:12px">
+      ${hdr(`Informe Periódico &mdash; Periodo ${p} &middot; Año ${año}`, obs.nombreEstudiante)}
+
+      <table style="width:100%;border-collapse:collapse;font-size:8.5pt;margin-bottom:10px">
+        <tr>
+          <td style="padding:2px 0"><b>Año:</b> ${año}</td>
+          <td style="padding:2px 0"><b>Grado:</b> ${obs.grupo}</td>
+          <td style="padding:2px 0"><b>Sede:</b> ${inst.nombre}</td>
+          <td style="padding:2px 0"><b>Nivel:</b> ${obs.grupo?.startsWith('Trans')||obs.grupo?.startsWith('Pre')||obs.grupo?.startsWith('Jar')?' Preescolar':'—'}</td>
+          <td style="padding:2px 0"><b>Jornada:</b> ${d.jornada || (obs.grupo?.includes('Mañana')?'Mañana':obs.grupo?.includes('Tarde')?'Tarde':'—')}</td>
+        </tr>
+      </table>
+
+      <table border="0" cellpadding="0" cellspacing="0" style="width:100%;border-collapse:collapse;font-size:8pt;margin-bottom:8px">
         <thead>
-          <tr>
-            <td style="font-weight:700;background:#eee">Aspecto</td>
-            <td style="font-weight:700;background:#eee">Criterio</td>
-            <td style="text-align:center;font-weight:700;background:#eee;min-width:25px">N</td>
-            <td style="text-align:center;font-weight:700;background:#eee;min-width:25px">AV</td>
-            <td style="text-align:center;font-weight:700;background:#eee;min-width:25px">CS</td>
-            <td style="text-align:center;font-weight:700;background:#eee;min-width:25px">S</td>
+          <tr style="background:#d8d8d8">
+            <td style="padding:4px 7px;border:1px solid #aaa;font-weight:700;width:18%">Aspecto</td>
+            <td style="padding:4px 7px;border:1px solid #aaa;font-weight:700">Criterio</td>
+            <td style="padding:4px 7px;border:1px solid #aaa;font-weight:700;width:26px;text-align:center">N</td>
+            <td style="padding:4px 7px;border:1px solid #aaa;font-weight:700;width:26px;text-align:center">AV</td>
+            <td style="padding:4px 7px;border:1px solid #aaa;font-weight:700;width:26px;text-align:center">CS</td>
+            <td style="padding:4px 7px;border:1px solid #aaa;font-weight:700;width:26px;text-align:center">S</td>
           </tr>
         </thead>
         <tbody>
-          ${OBS_SEGUIMIENTO.map(sec=>sec.criterios.map((crit,ci)=>{
-            const key=sec.aspecto.replace(/\s+/g,'_')+'_'+ci;
-            const val=seg[key]||'';
+          ${OBS_SEGUIMIENTO.map(sec => sec.criterios.map((crit, ci) => {
+            const key = sec.aspecto.replace(/\s+/g,'_') + '_' + ci;
+            const val = seg[key] || '';
             return `<tr>
-              ${ci===0?`<td rowspan="${sec.criterios.length}" style="font-weight:700;vertical-align:middle;font-size:.75rem">${sec.aspecto}</td>`:''}
-              <td>${crit}</td>
-              ${OBS_SEG_VALS.map(v=>`<td style="text-align:center">${val===v?'X':''}</td>`).join('')}
+              ${ci===0 ? `<td rowspan="${sec.criterios.length}" style="padding:4px 7px;border:1px solid #aaa;font-weight:700;font-size:7.5pt;vertical-align:middle;text-align:center">${sec.aspecto}</td>` : ''}
+              <td style="padding:3px 7px;border:1px solid #aaa;font-size:7.5pt">${crit}</td>
+              ${OBS_SEG_VALS.map(v=>`<td style="padding:3px 4px;border:1px solid #aaa;text-align:center;font-weight:700">${val===v?'X':''}</td>`).join('')}
             </tr>`;
           }).join('')).join('')}
         </tbody>
       </table>
-      <p style="font-size:.72rem"><b>Convenciones:</b> N=Nunca · AV=Algunas Veces · CS=Casi Siempre · S=Siempre</p>
-      ${(per.anotaciones||[]).length>0?`
-      <table border="1" cellpadding="5" cellspacing="0" style="width:100%;border-collapse:collapse;font-size:.78rem;margin-top:12px">
-        <tr><td colspan="4" style="text-align:center;font-weight:700;background:#eee">REGISTRO DE ANOTACIONES</td></tr>
-        <tr><td style="font-weight:700">Fecha/Tipo</td><td style="font-weight:700">Anotación</td><td style="font-weight:700">Comp. Estudiante</td><td style="font-weight:700">Comp. Acudiente</td></tr>
-        ${(per.anotaciones||[]).map(a=>`
+      <div style="font-size:7.5pt;margin-bottom:12px"><b>CONVENCIONES:</b> N=Nunca &nbsp;&middot;&nbsp; AV=Algunas Veces &nbsp;&middot;&nbsp; CS=Casi Siempre &nbsp;&middot;&nbsp; S=Siempre</div>
+
+      ${anotaciones.length > 0 ? `
+      <table border="0" cellpadding="0" cellspacing="0" style="width:100%;border-collapse:collapse;font-size:8pt;margin-bottom:10px">
+        <tr>${th('REGISTRO DE ANOTACIONES', 4)}</tr>
+        <tr style="background:#eee">
+          <td style="padding:4px 7px;border:1px solid #aaa;font-weight:700;width:15%">Fecha / Tipo</td>
+          <td style="padding:4px 7px;border:1px solid #aaa;font-weight:700;width:37%">Anotación</td>
+          <td style="padding:4px 7px;border:1px solid #aaa;font-weight:700;width:24%">Comp. Estudiante</td>
+          <td style="padding:4px 7px;border:1px solid #aaa;font-weight:700;width:24%">Comp. Acudiente</td>
+        </tr>
+        ${anotaciones.map(a=>`
         <tr>
-          <td>${(a.fecha||'').slice(0,10)}<br><b>${a.tipo}</b></td>
-          <td>${a.anotacion}<br><small><b>Inst:</b> ${a.compInstitucion||''}</small><br><small>${a.docente||''}</small></td>
-          <td>${a.compEstudiante||''}</td>
-          <td>${a.compAcudiente||''}</td>
+          <td style="padding:5px 7px;border:1px solid #aaa;font-size:7.5pt;vertical-align:top">
+            ${(a.fecha||'').slice(0,10)}<br><b>${a.tipo}</b>
+          </td>
+          <td style="padding:5px 7px;border:1px solid #aaa;font-size:7.5pt;vertical-align:top">
+            ${a.anotacion||''}
+            ${a.compInstitucion?`<br><span style="color:#555"><b>Inst:</b> ${a.compInstitucion}</span>`:''}
+            ${a.docente?`<br><span style="color:#888;font-size:7pt">${a.docente}</span>`:''}
+          </td>
+          <td style="padding:5px 7px;border:1px solid #aaa;font-size:7.5pt;vertical-align:top">${a.compEstudiante||''}</td>
+          <td style="padding:5px 7px;border:1px solid #aaa;font-size:7.5pt;vertical-align:top">${a.compAcudiente||''}</td>
         </tr>`).join('')}
-        <tr><td colspan="2">Firma Acudiente: ___________________________</td><td colspan="2">Firma Estudiante: ___________________________</td></tr>
-      </table>`:''}
-      <div style="text-align:center;margin-top:10px;font-size:.75rem">${inst.direccion}</div>
+        <tr>
+          <td colspan="2" style="padding:18px 7px 5px;border:1px solid #aaa;font-size:8pt">Firma Acudiente: ___________________________</td>
+          <td colspan="2" style="padding:18px 7px 5px;border:1px solid #aaa;font-size:8pt">Firma Estudiante: ___________________________</td>
+        </tr>
+      </table>` : ''}
+
+      <div style="text-align:right;margin-top:16px">
+        <div style="display:inline-block;text-align:center">
+          <div style="border-top:1px solid #333;width:230px;padding-top:4px;font-size:8.5pt">Director(a) de Grupo</div>
+        </div>
+      </div>
+      ${pie}
     </div>`;
   }).join('');
 
-  const firmas = `
+  // ── PÁGINA DE FIRMAS FINALES ─────────────────────────────────────────────
+  const firmasFinal = `
   <div>
-    ${encabezado}
-    <div style="margin-top:60px;display:flex;justify-content:space-around;text-align:center">
-      <div><div style="border-top:1px solid #000;width:200px;margin:0 auto;padding-top:6px;font-size:.85rem">${inst.rectora}<br><small>Rectora</small></div></div>
-      <div><div style="border-top:1px solid #000;width:200px;margin:0 auto;padding-top:6px;font-size:.85rem">Director(a) de Grupo<br><small>Firma</small></div></div>
+    ${hdr('Ficha Observador del Estudiante', `Año ${año}`)}
+    <div style="text-align:center;font-size:10pt;font-weight:700;margin:6px 0 40px">${obs.nombreEstudiante}</div>
+    <div style="display:flex;justify-content:space-around;text-align:center;margin-top:70px">
+      <div>
+        <div style="border-top:1.5px solid #333;width:200px;margin:0 auto;padding-top:6px;font-size:8.5pt">
+          ${inst.rectora}<br><span style="font-size:7.5pt;color:#555">Rectora</span>
+        </div>
+      </div>
+      <div>
+        <div style="border-top:1.5px solid #333;width:200px;margin:0 auto;padding-top:6px;font-size:8.5pt">
+          Director(a) de Grupo<br><span style="font-size:7.5pt;color:#555">Firma</span>
+        </div>
+      </div>
+      <div>
+        <div style="border-top:1.5px solid #333;width:200px;margin:0 auto;padding-top:6px;font-size:8.5pt">
+          Padre / Acudiente<br><span style="font-size:7.5pt;color:#555">Firma</span>
+        </div>
+      </div>
     </div>
-    <div style="text-align:center;margin-top:10px;font-size:.75rem">${inst.direccion}</div>
+    ${pie}
   </div>`;
 
-  const win = window.open('','_blank');
+  // ── ABRIR VENTANA ───────────────────────────────────────────────────────
+  const win = window.open('', '_blank');
   win.document.write(`<!DOCTYPE html><html><head><meta charset="UTF-8">
   <title>Observador — ${obs.nombreEstudiante} — ${año}</title>
   <style>
-    body { font-family: Arial, sans-serif; font-size: 12px; color: #000; margin: 20px; }
-    table { width: 100%; }
+    * { box-sizing: border-box; }
+    body { font-family: Arial, sans-serif; font-size: 10pt; color: #000; margin: 16mm 18mm; }
+    table { border-collapse: collapse; width: 100%; }
     @media print {
-      body { margin: 10mm; }
-      .no-print { display: none; }
+      .no-print { display: none !important; }
+      body { margin: 0; font-size: 9pt; }
+      @page { size: A4 portrait; margin: 12mm 14mm; }
     }
-  </style></head><body>
-  <div class="no-print" style="margin-bottom:16px">
-    <button onclick="window.print()" style="padding:8px 20px;background:#6c47ff;color:#fff;border:none;border-radius:6px;cursor:pointer;font-size:14px">🖨️ Imprimir</button>
-    <button onclick="window.close()" style="padding:8px 20px;background:#eee;border:none;border-radius:6px;cursor:pointer;font-size:14px;margin-left:8px">✕ Cerrar</button>
+  </style>
+  </head><body>
+  <div class="no-print" style="position:fixed;top:0;right:0;z-index:99;background:#fff;padding:8px 14px;
+    border-bottom-left-radius:10px;box-shadow:0 2px 10px rgba(0,0,0,.18);display:flex;gap:8px">
+    <button onclick="window.print()" style="padding:7px 18px;background:#6c47ff;color:#fff;border:none;
+      border-radius:7px;cursor:pointer;font-size:13px;font-weight:700">🖨️ Imprimir / Guardar PDF</button>
+    <button onclick="window.close()" style="padding:7px 13px;background:#f0f0f0;border:1px solid #ccc;
+      border-radius:7px;cursor:pointer;font-size:13px">✕ Cerrar</button>
   </div>
-  ${portada}${datosPag}${periodosPags}${firmas}
+  <div style="margin-top:48px">
+    ${portada}${datosPag}${periodosPags}${firmasFinal}
+  </div>
   </body></html>`);
   win.document.close();
 }
