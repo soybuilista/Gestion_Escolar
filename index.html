@@ -299,7 +299,11 @@ textarea { min-height:85px; resize:vertical; }
 .mural-public-view:hover { background:var(--purple-light); }
 .mural-icon-btn { width:27px;height:27px;border:0;border-radius:8px;background:rgba(255,255,255,.94);color:var(--purple-dark);box-shadow:0 2px 8px rgba(39,20,80,.14);cursor:pointer;font-weight:800; }
 .mural-icon-btn.danger { color:var(--red); }
-.mural-upload { position:absolute;inset:0;opacity:0;cursor:pointer;width:100%; }
+.mural-upload-label { position:relative;align-self:flex-start;margin:0 9px 9px;padding:5px 8px;border:1px solid var(--border);border-radius:7px;background:#fff;color:var(--purple-dark);font-size:.68rem;font-weight:700;cursor:pointer;overflow:hidden; }
+.mural-upload-label:hover { background:var(--purple-light); }
+.mural-upload-label:focus-within { outline:2px solid var(--purple);outline-offset:2px; }
+.mural-upload-label.disabled { opacity:.55;cursor:default; }
+.mural-upload { position:absolute;inset:0;width:100%;height:100%;opacity:0;cursor:pointer; }
 .mural-status { padding:0 16px 14px;color:var(--gray);font-size:.73rem; }
 .mural-state { background:#fff;border:1px solid var(--border);border-radius:16px;padding:38px 20px;text-align:center;color:var(--gray); }
 .mural-state strong { display:block;color:var(--purple-dark);font-size:1rem;margin-bottom:6px; }
@@ -2410,8 +2414,10 @@ function muralSlot(row, slot) {
   return `<div class="mural-slot ${image?'has-image':''}" aria-label="${muralEsc(slot.label)}">
     ${image ? `<img src="${muralEsc(image)}" alt="${muralEsc(slot.label)} de ${muralEsc(row.grupo)}" onclick="muralView('${key}','${slot.key}')">` : `<div class="mural-slot-empty">${busy?'Subiendo…':'Sin imagen'}</div>`}
     <div class="mural-slot-label">${muralEsc(slot.label)}</div>
-    ${image ? `<div class="mural-slot-actions"><button class="mural-icon-btn" title="Visualizar" aria-label="Visualizar ${muralEsc(slot.label)}" onclick="muralView('${key}','${slot.key}')">Ver</button><button class="mural-icon-btn danger" title="Eliminar" aria-label="Eliminar ${muralEsc(slot.label)}" onclick="muralDelete('${key}','${slot.key}')">×</button></div>` : ''}
-    <input class="mural-upload" type="file" accept="image/*" aria-label="Cargar o reemplazar ${muralEsc(slot.label)}" ${busy?'disabled':''} onchange="muralUpload('${key}','${slot.key}',this)">
+    ${image ? `<div class="mural-slot-actions"><button class="mural-icon-btn" title="Visualizar" aria-label="Visualizar ${muralEsc(slot.label)}" onclick="muralView('${key}','${slot.key}')">Ver</button><button class="mural-icon-btn danger" title="Quitar foto" aria-label="Quitar ${muralEsc(slot.label)} de ${muralEsc(row.grupo)}" ${busy?'disabled':''} onclick="muralDelete('${key}','${slot.key}')">×</button></div>` : ''}
+    <label class="mural-upload-label ${busy?'disabled':''}">${image?'Reemplazar foto':'Subir foto'}
+      <input class="mural-upload" type="file" accept="image/*" aria-label="${image?'Reemplazar':'Subir'} ${muralEsc(slot.label)} de ${muralEsc(row.grupo)}" ${busy?'disabled':''} onchange="muralUpload('${key}','${slot.key}',this)">
+    </label>
   </div>`;
 }
 
@@ -2433,13 +2439,17 @@ async function muralUpload(encodedGroup, slot, input) {
 
 async function muralDelete(encodedGroup, slot) {
   const grupo = muralGroupFromKey(encodedGroup), row = muralRows.find(item => item.grupo===grupo);
-  if(!row || !row.imagenes[slot] || !confirm('¿Eliminar esta imagen del mural?')) return;
-  const actionKey = `${grupo}|${slot}`; muralBusy.add(actionKey); renderMuralGrid();
+  const actionKey = `${grupo}|${slot}`;
+  if(!MURAL_SLOTS.some(item => item.key === slot) || !row?.imagenes?.[slot] || muralBusy.has(actionKey) || !confirm('¿Quitar esta foto del mural? El espacio quedará vacío.')) return;
+  muralBusy.add(actionKey); renderMuralGrid();
   try {
-    row.imagenes[slot] = null; row.updatedAt = new Date().toISOString();
-    await fbSet('mural_grupos', muralDocId(grupo), { grupo, imagenes:row.imagenes, updatedAt:row.updatedAt });
-    toast('Imagen eliminada','ok');
-  } catch(error) { toast('No se pudo eliminar la imagen','err'); }
+    const imagenes = { ...row.imagenes, [slot]: null };
+    const updatedAt = new Date().toISOString();
+    await fbSet('mural_grupos', muralDocId(grupo), { grupo, imagenes, updatedAt });
+    row.imagenes = imagenes;
+    row.updatedAt = updatedAt;
+    toast('Foto quitada del mural','ok');
+  } catch(error) { toast('No se pudo quitar la foto','err'); }
   finally { muralBusy.delete(actionKey); renderMuralGrid(); }
 }
 
