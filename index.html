@@ -2176,6 +2176,134 @@ function muralGrade(group) {
 }
 function muralDocId(group) { return encodeURIComponent(group).replace(/'/g, '%27').replace(/\./g, '%2E'); }
 
+function muralLevelOrder(group) {
+  const name = group.normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase().trim();
+  if(/^prejardin\b/.test(name)) return 0;
+  if(/^jardin\b/.test(name)) return 1;
+  if(/^transicion\b/.test(name)) return 2;
+  const number = name.match(/^(?:[^-]+-\s*)?(\d{1,2})\s*[°º]/);
+  if(number && +number[1] >= 1 && +number[1] <= 11) return +number[1] + 2;
+  const words = ['primero','segundo','tercero','cuarto','quinto','sexto','septimo','octavo','noveno','decimo','undecimo'];
+  const wordIndex = words.findIndex(word => name.startsWith(word));
+  return wordIndex < 0 ? 99 : wordIndex + 3;
+}
+
+function muralExportImage(url, group, label) {
+  return new Promise((resolve, reject) => {
+    const image = new Image();
+    const timer = setTimeout(() => { image.src = ''; reject(new Error(`Tiempo de espera agotado: ${group} / ${label}`)); }, 30000);
+    image.crossOrigin = 'anonymous';
+    image.onload = () => { clearTimeout(timer); resolve(image); };
+    image.onerror = () => { clearTimeout(timer); reject(new Error(`No se pudo cargar: ${group} / ${label}`)); };
+    image.src = url;
+  });
+}
+
+async function muralExportJpeg() {
+  const button = document.getElementById('muralExportButton');
+  if(!button || button.disabled) return;
+  button.disabled = true;
+  let canvas;
+  try {
+    button.textContent = 'Preparando mural…';
+    await cargarSedesExtra();
+    await muralLoadGroupConfig();
+    const saved = await fbGet('mural_grupos');
+    const byGroup = new Map(saved.map(row => [row.grupo, row]));
+    const rows = muralVisibleGroups().map(grupo => ({
+      grupo, imagenes: byGroup.get(grupo)?.imagenes || {}
+    })).sort((a,b) => muralLevelOrder(a.grupo) - muralLevelOrder(b.grupo) ||
+      a.grupo.localeCompare(b.grupo, 'es', { numeric:true }));
+    if(!rows.length) throw new Error('No hay grupos visibles para incluir en el mural.');
+
+    const cardW = 780, cardH = 610, gap = 20, margin = 30, headerH = 112;
+    const columns = Math.max(3, Math.ceil(rows.length * (cardH + gap) / 15000));
+    const width = margin * 2 + columns * cardW + (columns - 1) * gap;
+    const height = headerH + Math.ceil(rows.length / columns) * (cardH + gap) + margin;
+    if(width > 32767 || height > 32767 || width * height > 100000000) {
+      throw new Error('El mural supera el tamaño máximo de una imagen JPEG. Reduzca la cantidad de grupos.');
+    }
+    canvas = document.createElement('canvas');
+    canvas.width = width;
+    canvas.height = height;
+    const ctx = canvas.getContext('2d');
+    if(!ctx) throw new Error('Este navegador no pudo preparar la imagen.');
+    ctx.fillStyle = '#f7f4fc';
+    ctx.fillRect(0, 0, width, height);
+    ctx.fillStyle = '#421779';
+    ctx.font = 'bold 38px Arial, sans-serif';
+    ctx.fillText('Mural Escolar', margin, 55);
+    ctx.font = '21px Arial, sans-serif';
+    ctx.fillText(`${rows.length} grupos  ·  ${new Date().toLocaleDateString('es-CO')}`, margin, 88);
+
+    // Cargar por tandas evita mantener todas las fotos originales en memoria.
+    for(let start = 0; start < rows.length; start += 3) {
+      const batch = rows.slice(start, start + 3);
+      const photos = await Promise.all(batch.map(row => Promise.all(MURAL_SLOTS.map(slot =>
+        row.imagenes[slot.key] ? muralExportImage(row.imagenes[slot.key], row.grupo, slot.label) : null
+      ))));
+      batch.forEach((row, offset) => {
+        const index = start + offset;
+        const x = margin + (index % columns) * (cardW + gap);
+        const y = headerH + Math.floor(index / columns) * (cardH + gap);
+        ctx.fillStyle = '#ffffff';
+        ctx.fillRect(x, y, cardW, cardH);
+        ctx.fillStyle = '#421779';
+        ctx.font = 'bold 25px Arial, sans-serif';
+        let title = row.grupo;
+        while(ctx.measureText(title).width > cardW - 40 && title.length > 4) title = title.slice(0,-2) + '…';
+        ctx.fillText(title, x + 20, y + 38);
+        ctx.fillStyle = '#726780';
+        ctx.font = '17px Arial, sans-serif';
+        const level = muralLevelOrder(row.grupo);
+        ctx.fillText(level === 0 ? 'Prejardín' : level === 1 ? 'Jardín' : level === 2 ? 'Transición' : level <= 13 ? `${level - 2}°` : 'Otros', x + 20, y + 65);
+
+        MURAL_SLOTS.forEach((slot, slotIndex) => {
+          const boxW = 362, boxH = 218;
+          const sx = x + 20 + (slotIndex % 2) * (boxW + 16);
+          const sy = y + 86 + Math.floor(slotIndex / 2) * 252;
+          ctx.fillStyle = '#f4edff';
+          ctx.fillRect(sx, sy, boxW, boxH);
+          const image = photos[offset][slotIndex];
+          if(image) {
+            const scale = Math.min(boxW / image.naturalWidth, boxH / image.naturalHeight);
+            const w = image.naturalWidth * scale, h = image.naturalHeight * scale;
+            ctx.drawImage(image, sx + (boxW - w)/2, sy + (boxH - h)/2, w, h);
+          } else {
+            ctx.fillStyle = '#726780';
+            ctx.font = '18px Arial, sans-serif';
+            ctx.textAlign = 'center';
+            ctx.fillText('Sin imagen publicada', sx + boxW/2, sy + boxH/2);
+            ctx.textAlign = 'start';
+          }
+          ctx.fillStyle = '#421779';
+          ctx.font = 'bold 17px Arial, sans-serif';
+          ctx.fillText(slot.label, sx + 5, sy + boxH + 23);
+        });
+      });
+      button.textContent = `Preparando mural… ${Math.min(start + 3, rows.length)}/${rows.length}`;
+    }
+    const blob = await new Promise((resolve, reject) =>
+      canvas.toBlob(result => result ? resolve(result) : reject(new Error('No se pudo convertir el mural a JPEG.')), 'image/jpeg', 0.88)
+    );
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement('a');
+    link.href = url;
+    link.download = `mural-escolar-${new Date().toISOString().slice(0,10)}.jpg`;
+    document.body.appendChild(link);
+    link.click();
+    link.remove();
+    setTimeout(() => URL.revokeObjectURL(url), 60000);
+    toast('Mural JPEG descargado','ok');
+  } catch(error) {
+    console.error('Error al generar mural JPEG:', error);
+    toast(error.message || 'No se pudo generar el mural JPEG','err');
+  } finally {
+    if(canvas) { canvas.width = 0; canvas.height = 0; }
+    if(button.isConnected) { button.textContent = 'Descargar mural JPEG'; button.disabled = false; }
+  }
+}
+
 async function renderMuralEscolar() {
   S.module = 'mural';
   $app.innerHTML = `<div class="mural-shell">
@@ -2185,6 +2313,7 @@ async function renderMuralEscolar() {
       <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap">
         <div id="muralSummary" class="badge">Cargando mural…</div>
         <button class="btn btn-purple btn-sm" onclick="muralOpenAddGroup()">Agregar grupo</button>
+        <button id="muralExportButton" class="btn btn-outline btn-sm" onclick="muralExportJpeg()" disabled>Descargar mural JPEG</button>
       </div>
     </div>
     <div class="mural-toolbar" role="search">
@@ -2205,6 +2334,7 @@ async function renderMuralEscolar() {
     const grades = [...new Set(muralRows.map(row => muralGrade(row.grupo)))].sort((a,b)=>a==='Preescolar'?-1:b==='Preescolar'?1:a.localeCompare(b,'es',{numeric:true}));
     document.getElementById('muralGrade').innerHTML = `<option value="all">Todos los grados</option>${grades.map(g=>`<option value="${muralEsc(g)}">${muralEsc(g)}</option>`).join('')}`;
     renderMuralGrid();
+    document.getElementById('muralExportButton').disabled = false;
   } catch(error) {
     document.getElementById('muralContent').innerHTML = `<div class="mural-state"><strong>No pudimos cargar el mural</strong>Verifique la conexión e intente nuevamente.<br><button class="btn btn-purple btn-sm" style="margin-top:14px" onclick="renderMuralEscolar()">Reintentar</button></div>`;
     document.getElementById('muralSummary').textContent = 'Error de conexión';
